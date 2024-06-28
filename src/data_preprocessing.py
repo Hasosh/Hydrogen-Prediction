@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from config import Config
+from collections import defaultdict
 
 
 def create_bond_df(doc):
@@ -143,7 +144,7 @@ def clean_dataframe(atom_df, bond_df):
     atom_df, bond_df, question_mark_comp_ids_to_delete = remove_question_mark_rows(atom_df, bond_df)
 
     # Combine comp_ids_to_delete from both steps
-    total_comp_ids_to_delete = nan_comp_ids_to_delete.union(question_mark_comp_ids_to_delete)
+    #total_comp_ids_to_delete = nan_comp_ids_to_delete.union(question_mark_comp_ids_to_delete)
 
     # Final row counts
     final_atom_row_count = len(atom_df)
@@ -158,86 +159,59 @@ def clean_dataframe(atom_df, bond_df):
     return atom_df, bond_df
 
 
-# Function to determine the correct join column and perform the join
-def join_atom_coordinates(result_df, atom_df):
-    # Create a copy of the DataFrame to avoid modifying the original one
-    df = result_df.copy()
-
-    # Determine the correct join column
-    df['join_on_atom_id'] = df.apply(
-        lambda row: row['atom_id_2'] if row['atom_id'] == row['atom_id_1'] else row['atom_id_1'], axis=1
-    )
-
+# Join on atom_df to get coordinates of the current df depth
+def join_coordinates(result_df, atom_df, join_number):
     # Perform the join
-    merged_df = df.merge(
-        atom_df[['comp_id', 'atom_id', 'atomic_number', 'model_Cartn_x', 'model_Cartn_y', 'model_Cartn_z']],
-        left_on=['comp_id', 'join_on_atom_id'],
+    merged_df = result_df.merge(
+        atom_df,
+        left_on=['comp_id', f'atom_id_joined{join_number}'],
         right_on=['comp_id', 'atom_id'],
-        suffixes=('', '_joined')
+        suffixes=('', f'_coor_joined{join_number}')
     )
 
-    # Extract and rename the coordinates columns
-    merged_df = merged_df.rename(
-        columns={
-            'model_Cartn_x_joined': 'model_Cartn_x2',
-            'model_Cartn_y_joined': 'model_Cartn_y2',
-            'model_Cartn_z_joined': 'model_Cartn_z2'
-        }
+    merged_df.drop(columns=[f'atom_id_coor_joined{join_number}'], inplace=True)
+
+    return merged_df
+
+# Join on bond_df to get bondings with the current df depth
+def join_bonds(result_df, bond_df, join_number=1):
+    join_column = 'atom_id' if join_number == 1 else f'atom_id_joined{join_number - 1}'
+
+    # Merge on comp_id and atom_id_1
+    merged_1 = result_df.merge(
+        bond_df,
+        left_on=['comp_id', join_column],
+        right_on=['comp_id', 'atom_id_1'],
+        suffixes=('', f'_bond{join_number}')
     )
 
-    # Keep only the necessary columns
-    result_df = merged_df[
-        ['comp_id', 'atom_id', 'type_symbol', 'model_Cartn_x', 'model_Cartn_y', 'model_Cartn_z', 'is_hydrogen', 
-         'bonded_hydrogens', 'atomic_number', 'atom_id_1', 'atom_id_2', 'value_order', 'model_Cartn_x2', 'model_Cartn_y2', 'model_Cartn_z2', 'atomic_number_joined']
-    ]
+    # Rename atom_id_2 to atom_id_joined and drop atom_id_1
+    merged_1.rename(columns={'atom_id_2': f'atom_id_joined{join_number}'}, inplace=True)
+    merged_1.drop(columns=['atom_id_1'], inplace=True)
+
+    # Merge on comp_id and atom_id_2
+    merged_2 = result_df.merge(
+        bond_df,
+        left_on=['comp_id', join_column],
+        right_on=['comp_id', 'atom_id_2'],
+        suffixes=('', f'_bond{join_number}')
+    )
+
+    # Rename atom_id_2 to atom_id_joined and drop atom_id_1
+    merged_2.rename(columns={'atom_id_1': f'atom_id_joined{join_number}'}, inplace=True)
+    merged_2.drop(columns=['atom_id_2'], inplace=True)
+
+    # Concatenate the two merged DataFrames
+    result_df = pd.concat([merged_1, merged_2], ignore_index=True)
+    #print(result_df[(result_df['comp_id']=='001') & (result_df['atom_id']=='C02')])
+
+    # Drop rows where atom_id is the same as f'atom_id_joined{join_number}'
+    result_df = result_df[result_df['atom_id'] != result_df[f'atom_id_joined{join_number}']]
+
+    # Drop duplicate rows based on atom_id and f'atom_id_joined{join_number}'
+    result_df = result_df.drop_duplicates(subset=['comp_id', 'atom_id', f'atom_id_joined{join_number}'])
 
     return result_df
-
-
-def recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, current_depth, current_value_order=-1, max_depth=1):
-    if current_depth > max_depth:
-        return True  # Continue processing
-
-    comp_id, atom_id = current_atom
-
-    # Find the current atom in atom_df and save its coordinates along with comp_id and atom_id
-    atom_info = atom_df[(atom_df['comp_id'] == comp_id) & (atom_df['atom_id'] == atom_id)]
-    assert len(atom_info) == 1, "atom not found"
-
-    # If atom occurrs that is unwanted, stop the computation process
-    current_atomic_number = atom_info.iloc[0]['atomic_number']
-    if current_atomic_number not in Config.allowed_atomic_numbers:
-        return False  # Abort the whole computation
-
-    # Add infos of the current atom to the neighbor list
-    if not atom_info.empty:
-        x, y, z = atom_info.iloc[0]['model_Cartn_x'], atom_info.iloc[0]['model_Cartn_y'], atom_info.iloc[0]['model_Cartn_z']
-        if current_depth not in neighbor_list:
-            neighbor_list[current_depth] = []
-        neighbor_list[current_depth].append((comp_id, atom_id, current_atomic_number, current_value_order, x, y, z))
-
-    # Find all bonds in bond_df involving the current atom
-    bonds_involving_atom = bond_df[(bond_df['comp_id'] == comp_id) & 
-                                   ((bond_df['atom_id_1'] == atom_id) | (bond_df['atom_id_2'] == atom_id))]
-
-    # For each bond, determine the neighboring atom and recursively call the method
-    for _, bond in bonds_involving_atom.iterrows():
-        bond_value_order = bond['value_order']
-        if bond['atom_id_1'] == atom_id:
-            neighbor_atom = (bond['comp_id'], bond['atom_id_2'])
-        else:
-            neighbor_atom = (bond['comp_id'], bond['atom_id_1'])
-
-        # Check if the neighbor_atom has already been handled
-        already_handled = any(neighbor_atom == (comp_id, atom_id) for depth, neighbors in neighbor_list.items() for comp_id, atom_id, _, _, _, _, _ in neighbors)
-        if not already_handled:
-            # Recursively call the function for the neighboring atom
-            if not recursive_neighbor_finder(atom_df, bond_df, neighbor_atom, neighbor_list, current_depth + 1, bond_value_order, max_depth):
-                return False # Abort if an unwanted type is found
-    
-    return True # Continue processing
-
-
 
 
 if __name__ == "__main__":
@@ -288,7 +262,6 @@ if __name__ == "__main__":
         # E.g. in the periodic table, the atom C has the atomic number 6
         atom_df['atomic_number'] = atom_df['type_symbol'].apply(lambda x: gemmi.Element(x).atomic_number)
 
-
         # Define the mapping from string to integer
         value_order_mapping = {
             'SING': 1,
@@ -309,37 +282,94 @@ if __name__ == "__main__":
 
         ### Training / Testing dataset generation
         atom_df_filtered = atom_df.loc[(atom_df['type_symbol'] == Config.central_atom) & (atom_df['bonded_hydrogens'] == Config.num_hydrogens)]
+        print("Size of Filtered dataframe: ", atom_df_filtered.shape[0])
 
+        # remove unneeded columns
+        atom_df_filtered.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
+        atom_df.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
+        print(atom_df_filtered.head(10))
+        print(atom_df.head(10))
+
+        result_df_old = atom_df_filtered
+        df_per_depth = []
+        for depth in range(1, Config.max_neighbor_depth+1):
+            # Join with bonds
+            result_df_new = join_bonds(result_df_old, bond_df, join_number=depth)
+
+            # Join with atoms
+            result_df_final = join_coordinates(result_df_new, atom_df, join_number=depth)
+
+            # Determine the sorting values if more than 1 neighbor depth is used
+            sorting_values = ['comp_id', 'atom_id']
+            if depth >= 1:
+                for i in range(1, depth+1):
+                    sorting_values.append(f'atom_id_joined{i}')
+
+            # Sort the result_df
+            result_df_final_sorted = result_df_final.sort_values(by=sorting_values, inplace=False).reset_index(drop=True)
+
+            print(result_df_final_sorted.shape[0])
+            print(result_df_final_sorted.columns)
+            print(result_df_final_sorted[sorting_values].head(15))
+
+            # Add to df_per_depth list
+            df_per_depth.append(result_df_final_sorted.copy())
+
+            # Set new to old
+            result_df_old = result_df_final_sorted
+
+
+
+# """
+# working method do recursively find all neighbors of a given current atom (e.g. the central atom)
+# problem: method is very slow and therefore not applicable to large datasets 
+# """
+# def recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, current_depth, current_value_order=-1, max_depth=1):
+#     if current_depth > max_depth:
+#         return True  # Continue processing
+
+#     comp_id, atom_id = current_atom
+
+#     # Find the current atom in atom_df and save its coordinates along with comp_id and atom_id
+#     atom_info = atom_df[(atom_df['comp_id'] == comp_id) & (atom_df['atom_id'] == atom_id)]
+#     assert len(atom_info) == 1, "atom not found"
+
+#     # If atom occurrs that is unwanted, stop the computation process
+#     current_atomic_number = atom_info.iloc[0]['atomic_number']
+#     if current_atomic_number not in Config.allowed_atomic_numbers:
+#         return False  # Abort the whole computation
+
+#     # Add infos of the current atom to the neighbor list
+#     if not atom_info.empty:
+#         x, y, z = atom_info.iloc[0]['model_Cartn_x'], atom_info.iloc[0]['model_Cartn_y'], atom_info.iloc[0]['model_Cartn_z']
+#         if current_depth not in neighbor_list:
+#             neighbor_list[current_depth] = []
+#         neighbor_list[current_depth].append((comp_id, atom_id, current_atomic_number, current_value_order, x, y, z))
+
+#     # Find all bonds in bond_df involving the current atom
+#     bonds_involving_atom = bond_df[(bond_df['comp_id'] == comp_id) & 
+#                                    ((bond_df['atom_id_1'] == atom_id) | (bond_df['atom_id_2'] == atom_id))]
+
+#     # For each bond, determine the neighboring atom and recursively call the method
+#     for _, bond in bonds_involving_atom.iterrows():
+#         bond_value_order = bond['value_order']
+#         if bond['atom_id_1'] == atom_id:
+#             neighbor_atom = (bond['comp_id'], bond['atom_id_2'])
+#         else:
+#             neighbor_atom = (bond['comp_id'], bond['atom_id_1'])
+
+#         # Check if the neighbor_atom has already been handled
+#         already_handled = any(neighbor_atom == (comp_id, atom_id) for depth, neighbors in neighbor_list.items() for comp_id, atom_id, _, _, _, _, _ in neighbors)
+#         if not already_handled:
+#             # Recursively call the function for the neighboring atom
+#             if not recursive_neighbor_finder(atom_df, bond_df, neighbor_atom, neighbor_list, current_depth + 1, bond_value_order, max_depth):
+#                 return False # Abort if an unwanted type is found
+    
+#     return True # Continue processing
+
+        
+        # # Example:
         # neighbor_list = {}
         # current_atom = ('001', 'C06')  # Example atom
         # recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, current_depth=0, current_value_order=-1, max_depth=Config.max_neighbor_depth)
         # print(neighbor_list)
-
-        for _, atom in tqdm(atom_df_filtered.iterrows(), total=atom_df_filtered.shape[0]):
-            comp_id, atom_id, _, _, _, _, _, _, _ = atom
-            current_atom = (comp_id, atom_id)
-            print(current_atom)
-            neighbor_list = {}
-            if recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, current_depth=0, current_value_order=-1, max_depth=Config.max_neighbor_depth):
-                print(neighbor_list)
-            else:
-                print("Failed")
-
-        # # Merge on comp_id and atom_id_1
-        # merged_1 = atom_df_filtered.merge(bond_df, left_on=['comp_id', 'atom_id'], right_on=['comp_id', 'atom_id_1'], suffixes=('', '_bond_1'))
-
-        # # Merge on comp_id and atom_id_2
-        # merged_2 = atom_df_filtered.merge(bond_df, left_on=['comp_id', 'atom_id'], right_on=['comp_id', 'atom_id_2'], suffixes=('', '_bond_2'))
-
-        # # Concatenate the two merged DataFrames
-        # result_df = pd.concat([merged_1, merged_2], ignore_index=True)
-        # print(result_df.shape[0])
-
-        # # Apply the function and print the result
-        # result_df_final = join_atom_coordinates(result_df, atom_df)
-
-        # # Sort the result_df by comp_id first and then by atom_id
-        # result_df_final.sort_values(by=['comp_id', 'atom_id'], inplace=False).reset_index(drop=True)
-
-        # #print(result_df_final.head(15))
-        # print(result_df_final.shape[0])
