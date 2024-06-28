@@ -196,7 +196,7 @@ def join_atom_coordinates(result_df, atom_df):
 
 def recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, current_depth, current_value_order=-1, max_depth=1):
     if current_depth > max_depth:
-        return
+        return True  # Continue processing
 
     comp_id, atom_id = current_atom
 
@@ -204,9 +204,13 @@ def recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, cur
     atom_info = atom_df[(atom_df['comp_id'] == comp_id) & (atom_df['atom_id'] == atom_id)]
     assert len(atom_info) == 1, "atom not found"
 
+    # If atom occurrs that is unwanted, stop the computation process
+    current_atomic_number = atom_info.iloc[0]['atomic_number']
+    if current_atomic_number not in Config.allowed_atomic_numbers:
+        return False  # Abort the whole computation
+
     # Add infos of the current atom to the neighbor list
     if not atom_info.empty:
-        current_atomic_number = atom_info.iloc[0]['atomic_number']
         x, y, z = atom_info.iloc[0]['model_Cartn_x'], atom_info.iloc[0]['model_Cartn_y'], atom_info.iloc[0]['model_Cartn_z']
         if current_depth not in neighbor_list:
             neighbor_list[current_depth] = []
@@ -228,7 +232,10 @@ def recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, cur
         already_handled = any(neighbor_atom == (comp_id, atom_id) for depth, neighbors in neighbor_list.items() for comp_id, atom_id, _, _, _, _, _ in neighbors)
         if not already_handled:
             # Recursively call the function for the neighboring atom
-            recursive_neighbor_finder(atom_df, bond_df, neighbor_atom, neighbor_list, current_depth + 1, bond_value_order, max_depth)
+            if not recursive_neighbor_finder(atom_df, bond_df, neighbor_atom, neighbor_list, current_depth + 1, bond_value_order, max_depth):
+                return False # Abort if an unwanted type is found
+    
+    return True # Continue processing
 
 
 
@@ -303,10 +310,20 @@ if __name__ == "__main__":
         ### Training / Testing dataset generation
         atom_df_filtered = atom_df.loc[(atom_df['type_symbol'] == Config.central_atom) & (atom_df['bonded_hydrogens'] == Config.num_hydrogens)]
 
-        neighbor_list = {}
-        current_atom = ('001', 'C02')  # Example atom
-        recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, current_depth=0, current_value_order=-1, max_depth=Config.max_neighbor_depth)
-        print(neighbor_list)
+        # neighbor_list = {}
+        # current_atom = ('001', 'C06')  # Example atom
+        # recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, current_depth=0, current_value_order=-1, max_depth=Config.max_neighbor_depth)
+        # print(neighbor_list)
+
+        for _, atom in tqdm(atom_df_filtered.iterrows(), total=atom_df_filtered.shape[0]):
+            comp_id, atom_id, _, _, _, _, _, _, _ = atom
+            current_atom = (comp_id, atom_id)
+            print(current_atom)
+            neighbor_list = {}
+            if recursive_neighbor_finder(atom_df, bond_df, current_atom, neighbor_list, current_depth=0, current_value_order=-1, max_depth=Config.max_neighbor_depth):
+                print(neighbor_list)
+            else:
+                print("Failed")
 
         # # Merge on comp_id and atom_id_1
         # merged_1 = atom_df_filtered.merge(bond_df, left_on=['comp_id', 'atom_id'], right_on=['comp_id', 'atom_id_1'], suffixes=('', '_bond_1'))
