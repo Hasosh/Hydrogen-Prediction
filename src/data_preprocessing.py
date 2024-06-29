@@ -6,6 +6,11 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from config import Config
 from collections import defaultdict
+from dscribe.descriptors import CoulombMatrix
+from ase import Atoms
+from sklearn.model_selection import train_test_split
+import pickle
+import os
 
 
 def create_bond_df(doc):
@@ -26,7 +31,7 @@ def create_bond_df(doc):
     bond_df = pd.DataFrame(bond_data, columns=bond_site_cols)
 
     # Save the consolidated DataFrame to a CSV file
-    bond_df.to_csv('../data/bond_df.csv', index=False)
+    bond_df.to_csv(Config.bond_df_path, index=False)
 
     print(bond_df.head(10))
 
@@ -53,7 +58,7 @@ def create_atom_df(doc):
     atom_df['is_hydrogen'] = atom_df['type_symbol'] == 'H'
 
     # Save the consolidated DataFrame to a CSV file
-    atom_df.to_csv('../data/atom_df.csv', index=False)
+    atom_df.to_csv(Config.atom_df_path, index=False)
 
     print(atom_df.head(10))
 
@@ -89,7 +94,7 @@ def create_atom_df_extended(atom_df, bond_df):
     atom_df['bonded_hydrogens'] = merged_df['counts'].fillna(0).astype(int)
 
     # Save the updated atom_df to CSV
-    atom_df.to_csv('../data/atom_df_extended.csv', index=False)
+    atom_df.to_csv(Config.atom_df_filtered_path, index=False)
 
     print(atom_df.head(10))
 
@@ -214,50 +219,7 @@ def join_bonds(result_df, bond_df, join_number=1):
     return result_df
 
 
-if __name__ == "__main__":
-    if not Config.dev:
-        doc = cif.read_file("../data/components.cif")
-        print('Number of blocks/molecules in dataset: '+ str(len(doc)))
-
-        if Config.make_bond_df:
-            print("Making bond_df")
-            create_bond_df(doc)
-            print("Finished making bond_df")
-        
-        if Config.make_atom_df:
-            print("Making atom_df")
-            create_atom_df(doc)
-            print("Finished making atom_df")
-
-        if Config.make_atom_df_extended:
-            try:
-                atom_df = pd.read_csv('../data/atom_df.csv')
-                bond_df = pd.read_csv('../data/bond_df.csv')
-            except FileNotFoundError as e:
-                print(f"File not found: {e.filename}")
-            except pd.errors.EmptyDataError as e:
-                print(f"No data: {e}")
-            except pd.errors.ParserError as e:
-                print(f"Parsing error: {e}")
-            except Exception as e:
-                print(f"An unexpected error occurred: {e}")
-
-            print("Making atom_df_extended")
-            create_atom_df_extended(atom_df, bond_df)
-            print("Finished making atom_df_extended")
-
-        # load atom_df and bond_df
-        atom_df = pd.read_csv('../data/atom_df_extended.csv')
-        bond_df = pd.read_csv('../data/bond_df.csv')
-
-        # Before cleaning nan and ? rows, check that we did not impute these values by ourselves
-        assert atom_df['is_hydrogen'].notna().all(), f"NaN values found in column 'is_hydrogen'"
-        assert atom_df['bonded_hydrogens'].notna().all(), f"NaN values found in column 'bonded_hydrogens'"
-
-        # clean dataframe
-        atom_df, bond_df = clean_dataframe(atom_df, bond_df)
-
-        ### Modify columns
+def modify_columns(atom_df, bond_df):
         # make new column atomic number and depending on the type symbol used, give the atomic number
         # E.g. in the periodic table, the atom C has the atomic number 6
         atom_df['atomic_number'] = atom_df['type_symbol'].apply(lambda x: gemmi.Element(x).atomic_number)
@@ -272,6 +234,265 @@ if __name__ == "__main__":
         # Replace the values in the 'value_order' column
         bond_df['value_order'] = bond_df['value_order'].replace(value_order_mapping)
 
+        return atom_df, bond_df
+
+
+def check_assertions(atom_df, bond_df): # CAN BE EXTENDED: more checks
+    # Before cleaning nan and ? rows, check that we did not impute these values by ourselves
+    assert atom_df['is_hydrogen'].notna().all(), f"NaN values found in column 'is_hydrogen'"
+    assert atom_df['bonded_hydrogens'].notna().all(), f"NaN values found in column 'bonded_hydrogens'"
+
+
+def filter_centralatom_bondedhydrogens(atom_df, central_atom=None, num_hydrogens=None):
+        if central_atom is None and num_hydrogens is None:
+            print("Please specify one of the filtering parameters: central_atom or num_hydrogens")
+            print("atom_df is returned without filtering")
+            return atom_df
+        elif central_atom is None:
+            atom_df_filtered = atom_df.loc[atom_df['bonded_hydrogens'] == Config.num_hydrogens]
+        elif num_hydrogens is None:
+            atom_df_filtered = atom_df.loc[atom_df['type_symbol'] == Config.central_atom]
+        else:
+            atom_df_filtered = atom_df.loc[(atom_df['type_symbol'] == Config.central_atom) & (atom_df['bonded_hydrogens'] == Config.num_hydrogens)]
+        print("Size of Filtered dataframe: ", atom_df_filtered.shape[0])
+        return atom_df_filtered
+
+
+def filter_num_neighbors_to_centralatom(df, num_neighbors_to_centralatom):
+    #result_df_new = result_df.groupby(['comp_id', 'atom_id']).size().reset_index(name='counts')
+    grouped = df.groupby(['comp_id', 'atom_id'])
+    filtered_groups = grouped.filter(lambda x: len(x) == num_neighbors_to_centralatom)
+    return filtered_groups
+
+
+def filter_allowed_atomic_numbers(df, allowed_atomic_numbers):
+    # Step 1: Find all columns that begin with 'atomic_number'
+    atomic_columns = [col for col in df.columns if col.startswith('atomic_number')]
+    print(atomic_columns)
+
+    # Step 2: Check for each row whether all atomic_number columns have values in valid_values
+    invalid_rows_mask = df[atomic_columns].apply(lambda row: not all(val in allowed_atomic_numbers for val in row if pd.notna(val)), axis=1)
+
+    # Step 3: Identify rows that do not fulfill the valid values condition
+    invalid_rows = df[invalid_rows_mask]
+
+    # Step 4: Extract comp_id and atom_id values of these rows
+    invalid_comp_atom_ids = invalid_rows[['comp_id', 'atom_id']]
+
+    # Step 5: Delete all rows that have the same comp_id and atom_id as any of the identified rows
+    filtered_df = df[~df[['comp_id', 'atom_id']].apply(tuple, axis=1).isin(invalid_comp_atom_ids.apply(tuple, axis=1))]
+    
+    return filtered_df
+
+
+# Function to create feature vectors
+def create_feature_vectors_relative(df):
+    feature_vectors_dict = {}
+
+    for _, row in tqdm(df.iterrows(), total=df.shape[0]):
+        comp_id = row['comp_id']
+        atom_id = row['atom_id']
+        key = (comp_id, atom_id)
+        
+        if key not in feature_vectors_dict:
+            feature_vectors_dict[key] = [
+                row['atomic_number']
+            ]
+
+        # Append relevant columns
+        feature_vectors_dict[key].extend([
+            row['atomic_number_coor_joined1'],
+            row['value_order'],
+            float(row['model_Cartn_x_coor_joined1']) - float(row['model_Cartn_x']),
+            float(row['model_Cartn_y_coor_joined1']) - float(row['model_Cartn_y']),
+            float(row['model_Cartn_z_coor_joined1']) - float(row['model_Cartn_z'])
+        ])
+
+    # Convert the dictionary to a list of feature vectors
+    feature_vectors = [features for features in feature_vectors_dict.values()]
+    
+    return feature_vectors
+
+
+def separate_hydrogens(feature_vectors):
+    X, y = [], []
+    for vec in tqdm(feature_vectors):
+        assert vec[0] != 1, "Central atom is hydrogen atom, Aborted program"
+        X_auxiliary = []
+        X_auxiliary.append(vec[0])
+        found_hydrogen = False
+        for i in range(1, len(vec), 5):
+            if vec[i] == 1: # hydrogen case
+                assert vec[i+1] == 1, "Hydrogen atom does not have one bonding as it should have"
+                assert not found_hydrogen, "Found more than one bonding to hydrogen"
+                y.append(vec[i+2:i+5])
+                found_hydrogen = True
+            else:
+                X_auxiliary.extend(vec[i:i+5])
+        X.append(X_auxiliary)
+    return X, y
+
+
+def zero_padding(X):
+    max_length = 0
+    for vec in X:
+        if len(vec) > max_length:
+            max_length = len(vec)
+    print("Max feature vector length is: ", max_length)
+
+    # Pad the lists with zeros to the maximum length
+    X_padded = [lst + [0] * (max_length - len(lst)) for lst in X]
+
+    # Now X_padded can be converted to an numpy array because of homogenous shape
+    X_padded = np.asarray(X_padded)
+
+    print(X_padded.shape)
+    return X_padded, max_length
+
+
+def append_descriptor(X_padded, max_length):
+    cm = CoulombMatrix(n_atoms_max=int((max_length-1)/5) + 1, permutation='none')
+    X_padded_descriptor = []
+    for vec in tqdm(X_padded):
+        X_auxiliary = []
+        X_auxiliary.extend(vec)
+
+        # collect parameters for the descriptor
+        symbols = [gemmi.Element(int(vec[0])).name]
+        positions = [np.array([0, 0, 0])]
+        for i in range(1, len(vec), 5):
+            if vec[i] != 0: # check that we are not in the zero padding
+                symbols.append(gemmi.Element(int(vec[i])).name)
+                positions.append(vec[i+2:i+5])
+
+        # create descriptor
+        atoms_object = Atoms(symbols=symbols, positions=positions)
+        atoms_object_descriptor = cm.create(atoms_object)
+
+        # append to the current zero padded feature vector
+        X_auxiliary.extend(atoms_object_descriptor)
+        X_padded_descriptor.append(X_auxiliary)
+    return X_padded_descriptor
+
+
+def one_hot_encoding(X_padded):
+    # One-hot encoding functions
+    def one_hot_encode_centralatom(value):
+        if value == 0:  # for the zero padded values
+            return [0, 0, 0, 0]
+        elif value == 6:
+            return [1, 0, 0, 0]
+        elif value == 7:
+            return [0, 1, 0, 0]
+        elif value == 8:
+            return [0, 0, 1, 0]
+        elif value == 16:
+            return [0, 0, 0, 1]
+        else:
+            raise Exception("Unwanted atom type!")
+
+    def one_hot_encode_valueorder(value):
+        if value == 0:  # for the zero padded values
+            return [0, 0, 0]
+        elif value == 1:
+            return [1, 0, 0]
+        elif value == 2:
+            return [0, 1, 0]
+        elif value == 3:
+            return [0, 0, 1]
+        else:
+            raise Exception("Unwanted value order!")
+
+    # determine central atom indices to encode
+    centralatom_indices_to_encode = list(range(1, max_length, 5))
+    print("Central atom indices: ", centralatom_indices_to_encode)
+
+    # determine value order indices to encode
+    valueorder_indices_to_encode = list(range(2, max_length, 5))
+    print("Value order indices: ", valueorder_indices_to_encode)
+
+    # Create the new array with one-hot encoded values
+    X_encoded = []
+    for sample in tqdm(X_padded):
+        new_sample = []
+        for i, value in enumerate(sample):  # max_length 
+            if i in centralatom_indices_to_encode:
+                new_sample.extend(one_hot_encode_centralatom(value))
+            elif i in valueorder_indices_to_encode:
+                new_sample.extend(one_hot_encode_valueorder(value))
+            else:
+                new_sample.append(value)
+        X_encoded.append(new_sample)
+    return X_encoded
+
+
+def make_training_and_testing_set(X, y):
+    # Create the directory if it doesn't exist
+    directory = os.path.dirname(Config.training_set_save_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    # Split the data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+    # Save the training data
+    with open(Config.training_set_save_path, 'wb') as f:
+        pickle.dump((X_train, y_train), f)
+
+    # Save the testing data
+    with open(Config.testing_set_save_path, 'wb') as f:
+        pickle.dump((X_test, y_test), f)
+
+
+if __name__ == "__main__":
+    print("BEGIN")
+    if not Config.dev:
+        doc = cif.read_file(Config.cif_path)
+        print('Number of blocks/molecules in dataset: '+ str(len(doc)))
+
+        if Config.make_bond_df:
+            print("Making bond_df")
+            create_bond_df(doc)
+            print("Finished making bond_df")
+        
+        if Config.make_atom_df:
+            print("Making atom_df")
+            create_atom_df(doc)
+            print("Finished making atom_df")
+
+        if Config.make_atom_df_extended:
+            try:
+                atom_df = pd.read_csv(Config.atom_df_path)
+                bond_df = pd.read_csv(Config.bond_df_path)
+            except FileNotFoundError as e:
+                print(f"File not found: {e.filename}")
+            except pd.errors.EmptyDataError as e:
+                print(f"No data: {e}")
+            except pd.errors.ParserError as e:
+                print(f"Parsing error: {e}")
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
+
+            print("Making atom_df_extended")
+            create_atom_df_extended(atom_df, bond_df)
+            print("Finished making atom_df_extended")
+
+        # load atom_df and bond_df
+        atom_df = pd.read_csv(Config.atom_df_filtered_path)
+        bond_df = pd.read_csv(Config.bond_df_path)
+
+        # check certain assertions
+        print("Making assertions about dataframes")
+        check_assertions(atom_df, bond_df)
+
+        # clean dataframe (remove nan and ? samples)
+        print("Cleaning dataframes")
+        atom_df, bond_df = clean_dataframe(atom_df, bond_df)
+
+        # Modify columns (add atomic number to atom df and change value order from string to integer)
+        print("modifying columns of dataframes")
+        atom_df, bond_df = modify_columns(atom_df, bond_df)
+
         # Save the updated atom_df to CSV
         atom_df.to_csv('../data/atom_df_extended_filtered.csv', index=False)
         bond_df.to_csv('../data/bond_df_filtered.csv', index=False)
@@ -280,16 +501,14 @@ if __name__ == "__main__":
         atom_df = pd.read_csv('../data/atom_df_extended_filtered.csv')
         bond_df = pd.read_csv('../data/bond_df_filtered.csv')
 
-        ### Training / Testing dataset generation
-        atom_df_filtered = atom_df.loc[(atom_df['type_symbol'] == Config.central_atom) & (atom_df['bonded_hydrogens'] == Config.num_hydrogens)]
-        print("Size of Filtered dataframe: ", atom_df_filtered.shape[0])
+        # filtering
+        atom_df_filtered = filter_centralatom_bondedhydrogens(atom_df, Config.central_atom, Config.num_hydrogens)
 
         # remove unneeded columns
         atom_df_filtered.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
         atom_df.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
-        print(atom_df_filtered.head(10))
-        print(atom_df.head(10))
 
+        # make the big table for easier feature vector generation
         result_df_old = atom_df_filtered
         df_per_depth = []
         for depth in range(1, Config.max_neighbor_depth+1):
@@ -308,16 +527,60 @@ if __name__ == "__main__":
             # Sort the result_df
             result_df_final_sorted = result_df_final.sort_values(by=sorting_values, inplace=False).reset_index(drop=True)
 
-            print(result_df_final_sorted.shape[0])
-            print(result_df_final_sorted.columns)
-            print(result_df_final_sorted[sorting_values].head(15))
-
             # Add to df_per_depth list
             df_per_depth.append(result_df_final_sorted.copy())
 
             # Set new to old
             result_df_old = result_df_final_sorted
 
+        # initialize preventive
+        result_df_filtered = result_df_final_sorted
+
+        # filter out samples where atoms are not of atom type 'H', 'C', 'O', 'N', 'S'
+        if Config.allowed_atomic_numbers is not None:
+            before = result_df_filtered.shape[0]
+            result_df_filtered = filter_allowed_atomic_numbers(result_df_final_sorted, Config.allowed_atomic_numbers)
+            diff = before - result_df_filtered.shape[0] 
+            print(f"Filtering out samples with unwanted atom types removed {diff} many rows")
+        
+        # filter out samples where the central atom has more than 4 neighbors (including H atom)
+        if Config.num_neighbors_to_centralatom is not None:
+            before = result_df_filtered.shape[0]
+            result_df_filtered = filter_num_neighbors_to_centralatom(result_df_filtered, Config.num_neighbors_to_centralatom)
+            diff = before - result_df_filtered.shape[0] 
+            print(f"Filtering out samples with incorrect number of neighbors removed {diff} many rows")
+
+        ### Training / Testing dataset generation
+
+        # sort after comp_id, atom_id, atomic_number_coor_joined1, value_order, ...
+        sorting_values = ['comp_id', 'atom_id', 'atomic_number_coor_joined1', 'value_order']
+        result_df_filtered = result_df_filtered.sort_values(by=sorting_values, inplace=False).reset_index(drop=True)
+
+        # create feature vectors (through sorting before, this gets quite permutation-invariant)
+        print("Computing feature vectors")
+        feature_vectors = create_feature_vectors_relative(result_df_filtered)
+
+        # separate hydrogens from the feature vector (only works for one missing hydrogen)
+        print("Separating hydrogens from feature vectors")
+        X, y = separate_hydrogens(feature_vectors)
+
+        # apply zero padding
+        print("Applying zero padding")
+        X, max_length = zero_padding(X)
+
+        # apply descriptor (can be left out)
+        print("Applying the descriptor")
+        X = append_descriptor(X, max_length)
+
+        # apply one hot encoding
+        print("Applying one hot encoding")
+        X = one_hot_encoding(X)
+
+        # make training and testing dataset
+        print("Making the training and testing dataset")
+        make_training_and_testing_set(X, y)
+
+        print("FINISH")
 
 
 # """
