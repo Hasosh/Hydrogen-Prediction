@@ -1,0 +1,12 @@
+numpy
+pandas
+matplotlib
+tqdm
+scikit-learn
+scipy
+catboost
+xgboost
+seaborn
+gemmi
+ase
+dscribe
