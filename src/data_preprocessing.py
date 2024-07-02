@@ -11,10 +11,10 @@ from ase import Atoms
 from sklearn.model_selection import train_test_split
 import pickle
 import os
-
+#import sys
 
 def create_bond_df(doc):
-    bond_site_cols =  ['comp_id', 'atom_id_1', 'atom_id_2', 'value_order']
+    bond_site_cols = ['comp_id', 'atom_id_1', 'atom_id_2', 'value_order']
 
     # List to collect data
     bond_data = []
@@ -254,7 +254,7 @@ def filter_centralatom_bondedhydrogens(atom_df, central_atom=None, num_hydrogens
             atom_df_filtered = atom_df.loc[atom_df['type_symbol'] == Config.central_atom]
         else:
             atom_df_filtered = atom_df.loc[(atom_df['type_symbol'] == Config.central_atom) & (atom_df['bonded_hydrogens'] == Config.num_hydrogens)]
-        print("Size of Filtered dataframe: ", atom_df_filtered.shape[0])
+        print("Size of Filtered atom_df dataframe: ", atom_df_filtered.shape[0])
         return atom_df_filtered
 
 
@@ -314,23 +314,27 @@ def create_feature_vectors_relative(df):
     return feature_vectors
 
 
-def separate_hydrogens(feature_vectors):
+def separate_hydrogens(feature_vectors, num_hydrogens):
     X, y = [], []
+    relative_coordinates = []
     for vec in tqdm(feature_vectors):
-        assert vec[0] != 1, "Central atom is hydrogen atom, Aborted program"
+        assert vec[0] != 1, "Central atom cannot be hydrogen atom"
         X_auxiliary = []
+        rel_coords_auxiliary = []
         X_auxiliary.append(vec[0])
-        found_hydrogen = False
+        num_found_hydrogens = 0
         for i in range(1, len(vec), 5):
             if vec[i] == 1: # hydrogen case
                 assert vec[i+1] == 1, "Hydrogen atom does not have one bonding as it should have"
-                assert not found_hydrogen, "Found more than one bonding to hydrogen"
+                num_found_hydrogens += 1
                 y.append(vec[i+2:i+5])
-                found_hydrogen = True
             else:
                 X_auxiliary.extend(vec[i:i+5])
+                rel_coords_auxiliary.append(vec[i+2:i+5])
+        assert num_found_hydrogens == num_hydrogens, "Found more hydrogens in sample than there should be"
         X.append(X_auxiliary)
-    return X, y
+        relative_coordinates.append(rel_coords_auxiliary)
+    return X, y, relative_coordinates
 
 
 def zero_padding(X):
@@ -426,14 +430,25 @@ def one_hot_encoding(X_padded):
     return X_encoded
 
 
-def make_training_and_testing_set(X, y):
+def save_dataset(X, y, X_only_relative_coordinates):
+    # Create the directory if it doesn't exist
+    directory = os.path.dirname(Config.dataset_save_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    # Save the training data
+    with open(Config.dataset_save_path, 'wb') as f:
+        pickle.dump((X, y, X_only_relative_coordinates), f)
+
+
+def make_training_and_testing_set(X, y, max_length):
     # Create the directory if it doesn't exist
     directory = os.path.dirname(Config.training_set_save_path)
     if not os.path.exists(directory):
         os.makedirs(directory)
 
     # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=Config.train_test_split_ratio, random_state=Config.random_state)
 
     # Save the training data
     with open(Config.training_set_save_path, 'wb') as f:
@@ -442,6 +457,10 @@ def make_training_and_testing_set(X, y):
     # Save the testing data
     with open(Config.testing_set_save_path, 'wb') as f:
         pickle.dump((X_test, y_test), f)
+
+    # Save max_length
+    with open(Config.max_length_save_path, 'w') as file:
+        file.write(str(max_length))
 
 
 if __name__ == "__main__":
@@ -496,7 +515,9 @@ if __name__ == "__main__":
         # Save the updated atom_df to CSV
         atom_df.to_csv('../data/atom_df_extended_filtered.csv', index=False)
         bond_df.to_csv('../data/bond_df_filtered.csv', index=False)
-    else:
+
+        # dev checkpoint could be made here
+
         # load atom_df and bond_df
         atom_df = pd.read_csv('../data/atom_df_extended_filtered.csv')
         bond_df = pd.read_csv('../data/bond_df_filtered.csv')
@@ -562,7 +583,7 @@ if __name__ == "__main__":
 
         # separate hydrogens from the feature vector (only works for one missing hydrogen)
         print("Separating hydrogens from feature vectors")
-        X, y = separate_hydrogens(feature_vectors)
+        X, y, relative_coordinates = separate_hydrogens(feature_vectors, Config.num_hydrogens)
 
         # apply zero padding
         print("Applying zero padding")
@@ -576,9 +597,12 @@ if __name__ == "__main__":
         print("Applying one hot encoding")
         X = one_hot_encoding(X)
 
+        # save dataset along with raw relative coordinates
+        save_dataset(X, y, relative_coordinates)
+
         # make training and testing dataset
         print("Making the training and testing dataset")
-        make_training_and_testing_set(X, y)
+        make_training_and_testing_set(X, y, max_length)
 
         print("FINISH")
 
