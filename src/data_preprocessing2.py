@@ -241,21 +241,29 @@ def depth_limited_search_with_features(start_atom, adj_matrix, atom_index, atom_
             if current_depth not in features_by_depth:
                 features_by_depth[current_depth] = []
 
+            # Gather all neighbors
+            neighbors = []
             for neighbor_index, bond_order in enumerate(adj_matrix[current_index]):
                 if bond_order > 0 and neighbor_index not in visited:
                     neighbor_atom = list(atom_index.keys())[list(atom_index.values()).index(neighbor_index)]
                     atom_info = atom_info_dict.get(neighbor_atom)
                     if atom_info is None or atom_info[0] is None:
                         # Encountered an atom with an unspecified atomic number, return an empty list
-                        features_by_depth[current_depth] = []
-                        break
-                    # Compute relative coordinates
-                    rel_x = atom_info[1] - start_atom_info[1]
-                    rel_y = atom_info[2] - start_atom_info[2]
-                    rel_z = atom_info[3] - start_atom_info[3]
-                    feature_values = [atom_info[0], bond_order, rel_x, rel_y, rel_z]
-                    features_by_depth[current_depth].extend(feature_values)
-                    queue.append((neighbor_index, current_depth + 1))
+                        return {}
+                    neighbors.append((neighbor_index, neighbor_atom, bond_order))
+
+            # Sort neighbors first by atomic number, then by bond order
+            neighbors.sort(key=lambda x: (atom_info_dict[x[1]][0], x[2]))
+
+            for neighbor_index, neighbor_atom, bond_order in neighbors:
+                atom_info = atom_info_dict.get(neighbor_atom)
+                # Compute relative coordinates
+                rel_x = atom_info[1] - start_atom_info[1]
+                rel_y = atom_info[2] - start_atom_info[2]
+                rel_z = atom_info[3] - start_atom_info[3]
+                feature_values = [atom_info[0], bond_order, rel_x, rel_y, rel_z]
+                features_by_depth[current_depth].extend(feature_values)
+                queue.append((neighbor_index, current_depth + 1))
             else:
                 continue
             break
@@ -533,12 +541,15 @@ if __name__ == "__main__":
             # Process only atoms in atom_df_filtered for the current comp_id
             filtered_atoms = atom_df_filtered[atom_df_filtered['comp_id'] == comp_id]['atom_id'].unique()
             for atom in filtered_atoms:
-                features_by_depth[atom] = depth_limited_search_with_features(atom, adj_matrix, atom_index, atom_info_dict, depth=Config.neighbor_depth)
-            results[comp_id] = features_by_depth
+                features = depth_limited_search_with_features(atom, adj_matrix, atom_index, atom_info_dict, depth=Config.neighbor_depth)
+                if features:
+                    features_by_depth[atom] = features
+            if features_by_depth:
+                results[comp_id] = features_by_depth
 
-        # Save to pickle file (TODO: remove later)
-        with open('../data/dataset-O2-depth2/intermediate-results.pkl', 'wb') as f:
-            pickle.dump(results, f)
+        # Save to pickle file (for debugging if wanted)
+        # with open('../data/dataset-C4-depth2/intermediate-results.pkl', 'wb') as f:
+        #     pickle.dump(results, f)
 
         # Display the results for one comp_id
         for comp_id, features in results.items():
