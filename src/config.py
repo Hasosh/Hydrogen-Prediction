@@ -21,8 +21,8 @@ class Config():
     central_atom = 'O'
     neighbor_depth = 2  # computation time increases for larger depts
     num_neighbors_to_centralatom = 2 # number of neighbors to central atom, this includes the hydrogen atom;
-    value_order_mapping = {'SING': 1, 'DOUB': 2, 'TRIP': 3}
-    atomic_number_mapping = {'H': 1, 'C': 6, 'N': 7, 'O': 8, 'S': 16}
+    value_order_mapping = {'SING': 1, 'DOUB': 2, 'TRIP': 3}  # do not change this
+    atomic_number_mapping = {'H': 1, 'C': 6, 'N': 7, 'O': 8, 'S': 16}  # do not change this
 
     # For Splitting the data
     train_test_split_ratio = 0.2
