@@ -187,7 +187,7 @@ def metric_bindungslänge_differenz(y_test, y_pred):
 
 
 # combining all regression metrics in one method
-def eval_regression(y_test, y_pred):
+def eval_regression(y_test, y_pred, X_test_coords=None):
     print("Alle folgenden Metriken sind H zu H'")
     # absoluter Abstand H zu H' (MSE Score)
     mse = mean_squared_error(y_test, y_pred)
@@ -206,7 +206,15 @@ def eval_regression(y_test, y_pred):
     avg_bindugslänge_diff = metric_bindungslänge_differenz(y_test, y_pred)
     print("Durschnittliche Bindungslänge Differenz: ", avg_bindugslänge_diff)
 
-    return mse, r2, avg_cosine_similarity, avg_bindugslänge_diff
+    if X_test_coords:
+        # Wasserstein Distanz zwischen zwei Winkelverteilungen
+        all_angles_test = all_angles_H_central_neighbor(X_test_coords, y_test)  # alle Winkel im Test set
+        all_angles_pred = all_angles_H_central_neighbor(X_test_coords, y_pred)  # alle Winkel durch Prediction
+        wasserstein = wasserstein_distance(all_angles_test , all_angles_pred)
+        print("Die Wasserstein Distanz zwischen den beiden Winkelverteilungen beträgt: ", wasserstein)
+        return mse, r2, avg_angle, avg_bindugslänge_diff, wasserstein
+    
+    return mse, r2, avg_angle, avg_bindugslänge_diff
 
 # -------------------------------------------------
 # Methoden: Zusätzliches
