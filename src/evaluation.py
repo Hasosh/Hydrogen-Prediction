@@ -17,7 +17,7 @@ Siehe Beispiele durch Ausführung dieses Skripts (main-methode ganz unten)
 
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 from scipy.stats import wasserstein_distance
 from scipy.stats import norm
 from sklearn.mixture import GaussianMixture
@@ -118,23 +118,6 @@ def plot_fit(data, n_components=1):
     plt.show()
 
 
-# Gegeben feature Vektoren X, es entinimmt nur die relativen Koordinaten in den Feature Vektoren (One hot encodings kommen weg)
-def extract_relative_coordinates(X):
-    X_rel = []
-    for sample in X:
-        X_rel_current = []
-        i = 0
-        while i < len(sample):
-            x, y, z = sample[i+8], sample[i+9], sample[i+10]
-            if x != 0 and y != 0 and z != 0:
-                X_rel_current.append([x, y, z])
-            else:
-                break # there should be no real value after zero padding happended once
-            i += 11
-        X_rel.append(X_rel_current)
-    return X_rel
-
-
 # -------------------------------------------------
 # Methoden: Regressionsgüte
 # -------------------------------------------------
@@ -201,6 +184,49 @@ def metric_bindungslänge_differenz(y_test, y_pred):
     assert len(y_test) == len(y_pred), "Length of y_test and y_pred is not the same"
         
     return abs(np.average(np.linalg.norm(y_test, axis=1)) - np.average(np.linalg.norm(y_pred, axis=1)))
+
+
+# combining all regression metrics in one method
+def eval_regression(y_test, y_pred):
+    print("Alle folgenden Metriken sind H zu H'")
+    # absoluter Abstand H zu H' (MSE Score)
+    mse = mean_squared_error(y_test, y_pred)
+    print("Mittlerer Abstand: ", mse)
+
+    # R2 Bestimmtheitskoeffizient
+    r2 = r2_score(y_test, y_pred)
+    print("R2 Bestimmtheitsmaß: ", r2)
+
+    # Durchschnittliche Cosine Similarity (kann ignoriert werden) und durchschnittliche Winkel
+    avg_cosine_similarity, avg_angle = metric_cosine_similarity_and_angle(y_test, y_pred)
+    print("Average Cosine Similarity: ", avg_cosine_similarity)
+    print("Average Angle (degrees): ", avg_angle)
+
+    # Duchschnittliche Bindungslängendifferenz
+    avg_bindugslänge_diff = metric_bindungslänge_differenz(y_test, y_pred)
+    print("Durschnittliche Bindungslänge Differenz: ", avg_bindugslänge_diff)
+
+    return mse, r2, avg_cosine_similarity, avg_bindugslänge_diff
+
+# -------------------------------------------------
+# Methoden: Zusätzliches
+# -------------------------------------------------
+
+# Gegeben feature Vektoren X, es entinimmt nur die relativen Koordinaten in den Feature Vektoren (One hot encodings kommen weg)
+def extract_relative_coordinates(X):
+    X_rel = []
+    for sample in X:
+        X_rel_current = []
+        i = 0
+        while i < len(sample):
+            x, y, z = sample[i+8], sample[i+9], sample[i+10]
+            if x != 0 and y != 0 and z != 0:
+                X_rel_current.append([x, y, z])
+            else:
+                break # there should be no real value after zero padding happended once
+            i += 11
+        X_rel.append(X_rel_current)
+    return X_rel
 
 
 if __name__ == "__main__":
