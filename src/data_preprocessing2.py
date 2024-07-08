@@ -498,7 +498,7 @@ if __name__ == "__main__":
         # Save the updated atom_df to CSV
         atom_df.to_csv('../data/atom_df_extended_filtered.csv', index=False)
         bond_df.to_csv('../data/bond_df_filtered.csv', index=False)
-    else:
+
         # load atom_df and bond_df
         atom_df = pd.read_csv('../data/atom_df_extended_filtered.csv')
         bond_df = pd.read_csv('../data/bond_df_filtered.csv')
