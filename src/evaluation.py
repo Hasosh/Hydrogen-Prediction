@@ -128,11 +128,11 @@ def cosine_similarity_and_angle(vector1, vector2):
     truth = np.array(vector2)
     
     # Compute the dot product
-    dot_product = np.dot(vector1, vector2)
+    dot_product = np.dot(pred, truth)
     
     # Compute the norms (magnitudes) of the vectors
-    norm_pred = np.linalg.norm(vector1)
-    norm_truth = np.linalg.norm(vector2)
+    norm_pred = np.linalg.norm(pred)
+    norm_truth = np.linalg.norm(truth)
     
     # Compute the cosine similarity
     cosine_sim = dot_product / (norm_pred * norm_truth)
@@ -148,7 +148,7 @@ def cosine_similarity_and_angle(vector1, vector2):
 
     # Round the values to three decimal places
     cosine_sim = round(cosine_sim, 3)
-    angle_radians = round(angle_radians, 3)
+    #angle_radians = round(angle_radians, 3)
     angle_degrees = round(angle_degrees, 3)
     
     return cosine_sim, angle_degrees
