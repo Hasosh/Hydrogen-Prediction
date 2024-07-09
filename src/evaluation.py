@@ -206,7 +206,7 @@ def eval_regression(y_test, y_pred, X_test_coords=None):
     avg_bindugslänge_diff = metric_bindungslänge_differenz(y_test, y_pred)
     print("Durschnittliche Bindungslänge Differenz: ", avg_bindugslänge_diff)
 
-    if X_test_coords:
+    if X_test_coords is not None and X_test_coords.size > 0:
         # Wasserstein Distanz zwischen zwei Winkelverteilungen
         all_angles_test = all_angles_H_central_neighbor(X_test_coords, y_test)  # alle Winkel im Test set
         all_angles_pred = all_angles_H_central_neighbor(X_test_coords, y_pred)  # alle Winkel durch Prediction
@@ -223,16 +223,19 @@ def eval_regression(y_test, y_pred, X_test_coords=None):
 # Gegeben feature Vektoren X, es entinimmt nur die relativen Koordinaten in den Feature Vektoren (One hot encodings kommen weg)
 def extract_relative_coordinates(X):
     X_rel = []
-    for sample in X:
+    for sample_nr, sample in enumerate(X):
         X_rel_current = []
         i = 0
         while i < len(sample):
             x, y, z = sample[i+8], sample[i+9], sample[i+10]
-            if x != 0 and y != 0 and z != 0:
-                X_rel_current.append([x, y, z])
-            else:
+            if x == 0 and y == 0 and z == 0:
                 break # there should be no real value after zero padding happended once
+            else:
+                X_rel_current.append([x, y, z])
             i += 11
+        if not X_rel_current:
+            print("Broken sample: ", sample, sample_nr)
+            raise Exception("Error occurred extracting relative coordinates")
         X_rel.append(X_rel_current)
     return X_rel
 
