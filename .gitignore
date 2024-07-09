@@ -6,3 +6,5 @@ catboost_info
 data/
 config.py
 Auxiliary.ipynb
+wandb/
+*.h5
