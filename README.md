@@ -6,7 +6,8 @@
 ```
 pip install -r requirements.txt
 ```
-2. Download ```components.cif``` from [Worldwide Protein Data Bank](http://www.wwpdb.org/data/ccd) and put it into the folder ```data/```
+2. Make a new folder called ```data/``` on the same level as ```src/```
+3. Download ```components.cif``` from [Worldwide Protein Data Bank](http://www.wwpdb.org/data/ccd) and put it into the folder ```data/```
 
 ## Workflow
 
