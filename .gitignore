@@ -8,3 +8,5 @@ config.py
 Auxiliary.ipynb
 wandb/
 *.h5
+*.pptx
+img/
