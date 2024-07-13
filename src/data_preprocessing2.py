@@ -508,7 +508,7 @@ if __name__ == "__main__":
 
         # remove unneeded columns
         atom_df_filtered.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
-        atom_df.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
+        atom_df.drop(columns=["is_hydrogen", "bonded_hydrogens"], inplace=True)  # NOT! atom_df.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
 
         # Preprocess data (i.e. make adjacency matrices for each comp_id to make the further computations faster afterwards)
         if Config.make_preprocessed_data:
