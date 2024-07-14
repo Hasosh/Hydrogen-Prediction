@@ -18,7 +18,7 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 
 # evaluation scheme
-from evaluation import *
+from utils import *
 
 # Wandb
 import wandb
