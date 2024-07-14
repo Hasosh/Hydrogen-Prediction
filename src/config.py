@@ -1,6 +1,10 @@
 import json
 
 class Config():
+    # -------------------------------------------------
+    # Configuration: data_preprocessing2.py
+    # -------------------------------------------------
+
     # path to Chemical Component Dictionary dataset
     cif_path = "../data/components.cif"
 
@@ -38,6 +42,21 @@ class Config():
 
     # For development (ignore)
     dev = False # let this False
+
+    # -------------------------------------------------
+    # Configuration: train_models.py
+    # -------------------------------------------------
+
+    # For WandB
+    use_wandb = False
+    project_name = "hydrogen-prediction"
+    datasets = ['dataset-C4-depth1', 'dataset-O2-depth1', 'dataset-C4-depth2', 'dataset-O2-depth2']
+    alpha_values = [1, 0.1, 0.01, 0.001]
+    estimator_values = [100, 200, 500]
+
+    # -------------------------------------------------
+    # Class methods to be able to save the current config. py
+    # -------------------------------------------------
 
     @classmethod
     def to_dict(cls):
