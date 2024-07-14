@@ -49,11 +49,12 @@ class Config():
 
     # For WandB
     use_wandb = False
-    project_name = "hydrogen-prediction"
-    datasets = ['dataset-C4-depth1', 'dataset-O2-depth1', 'dataset-C4-depth2', 'dataset-O2-depth2']
+    wandb_project_name = "hydrogen-prediction"
+    datasets = ['dataset-C4-depth1']  # ['dataset-C4-depth1', 'dataset-O2-depth1', 'dataset-C4-depth2', 'dataset-O2-depth2']
     alpha_values = [1, 0.1, 0.01, 0.001]
     do_polynomial_regression = True
     estimator_values = [100, 200, 500]
+    n_jobs = -1  # number of CPUs to use for ensemble methods etc.
 
     # -------------------------------------------------
     # Class methods to be able to save the current config. py
