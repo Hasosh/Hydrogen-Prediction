@@ -229,17 +229,21 @@ def depth_limited_search_with_features(start_atom, adj_matrix, atom_index, atom_
     start_index = atom_index[start_atom]
     start_atom_info = atom_info_dict[start_atom]
     visited = set()
-    queue = deque([(start_index, 1)])  # Start with depth 1
+    queue = deque([(start_index, 0, 1)])  # Queue has tuples (index for adj. matrix, list index for features_by_depth[current_depth], current depth); Start with depth 1
     features_by_depth = {}
+    connections = {}
 
     while queue:
-        current_index, current_depth = queue.popleft()
+        current_index, list_index, current_depth = queue.popleft()
         if current_depth > depth:
             continue
         if current_index not in visited:
             visited.add(current_index)
             if current_depth not in features_by_depth:
                 features_by_depth[current_depth] = []
+                connections[current_depth] = {}
+
+            connections[current_depth][list_index] = []
 
             # Gather all neighbors
             neighbors = []
@@ -249,26 +253,30 @@ def depth_limited_search_with_features(start_atom, adj_matrix, atom_index, atom_
                     atom_info = atom_info_dict.get(neighbor_atom)
                     if atom_info is None or atom_info[0] is None:
                         # Encountered an atom with an unspecified atomic number, return an empty list
-                        return {}
+                        return {}, {}
                     neighbors.append((neighbor_index, neighbor_atom, bond_order))
 
             # Sort neighbors first by atomic number, then by bond order
             neighbors.sort(key=lambda x: (atom_info_dict[x[1]][0], x[2]))
 
+            # Loop through each neighbor of the current atom
             for neighbor_index, neighbor_atom, bond_order in neighbors:
                 atom_info = atom_info_dict.get(neighbor_atom)
                 # Compute relative coordinates
                 rel_x = atom_info[1] - start_atom_info[1]
                 rel_y = atom_info[2] - start_atom_info[2]
                 rel_z = atom_info[3] - start_atom_info[3]
-                feature_values = [atom_info[0], bond_order, rel_x, rel_y, rel_z]
-                features_by_depth[current_depth].extend(feature_values)
-                queue.append((neighbor_index, current_depth + 1))
-            else:
-                continue
-            break
 
-    return features_by_depth
+                # Add new feature values
+                feature_values = [atom_info[0], bond_order, rel_x, rel_y, rel_z]
+                next_list_index = len(features_by_depth[current_depth]) # needs to be computed before adding values to the the correct list index
+                features_by_depth[current_depth].extend(feature_values)
+
+                # Update the connections and the queue
+                connections[current_depth][list_index].append(next_list_index)
+                queue.append((neighbor_index, next_list_index, current_depth + 1))
+
+    return features_by_depth, connections
 
 
 def preprocess_data(bond_df, atom_df, comp_ids):
@@ -296,6 +304,30 @@ def preprocess_data(bond_df, atom_df, comp_ids):
     return adj_matrices, atom_indices, atom_infos
 
 
+def convert_connections_to_tuples(connections):
+    connection_tuples = {}
+
+    for atom_id, connections_by_depth in connections.items():
+        offset = - 5  # because hydrogen atom will not be added to connections
+        connection_tuples[atom_id] = []
+        for depth, indices in connections_by_depth.items():
+            #print(f"At depth {depth} we have offset {offset}")
+            max_index = 0
+            for parent_index, child_indices in indices.items():
+                for child_index in child_indices:
+                    if child_index > max_index:
+                        max_index = child_index
+                    if depth == 1:
+                        if child_index != 0:  # do not add the connection to hydrogen atom because it is removed later anyway
+                            connection_tuples[atom_id].append((-1, child_index + offset))
+                    else:
+                        connection_tuples[atom_id].append((parent_index + old_offset, child_index + offset))
+            old_offset = offset  # Keep the old offset for adding to the parent index
+            offset += max_index + 5  # Update the offset for the next depth level
+    
+    return connection_tuples
+
+
 def filter_num_neighbors_to_centralatom(results, num_neighbors):
     delete_keys = []
     for (comp_id, atom_id), depths in results.items():
@@ -308,6 +340,15 @@ def filter_num_neighbors_to_centralatom(results, num_neighbors):
         del results[(comp_id, atom_id)]
 
 
+def restructure_connections(connections):
+    restructured_connections = {}
+    for comp_id, _ in connections.items():
+        restructured = convert_connections_to_tuples(connections[comp_id])
+        for atom_id, new_connections in restructured.items():
+            restructured_connections[(comp_id, atom_id)] = new_connections
+    return restructured_connections
+
+
 def restructure_results(results):
     restructured_results = {}
     for comp_id, atoms in results.items():
@@ -316,7 +357,7 @@ def restructure_results(results):
     return restructured_results
 
 
-def filtered_results(results, num_neighbors):
+def filtered_results(results, connections, num_neighbors):
     delete_keys = []
     for (comp_id, atom_id), depths in results.items():
         if depths:
@@ -326,6 +367,7 @@ def filtered_results(results, num_neighbors):
     # Remove the keys
     for (comp_id, atom_id) in delete_keys:
         del results[(comp_id, atom_id)]
+        del connections[(comp_id, atom_id)]
 
 
 def seperate_hydrogens(results):
@@ -421,7 +463,7 @@ def process_results(results, depth):
     return processed_features
 
 
-def save_dataset(X, y):
+def save_dataset(X, y, connections):  # inputs are all dicts
     # Create the directory if it doesn't exist
     directory = os.path.dirname(Config.dataset_save_path)
     if not os.path.exists(directory):
@@ -429,21 +471,25 @@ def save_dataset(X, y):
 
     # Save the training data
     with open(Config.dataset_save_path, 'wb') as f:
-        pickle.dump((X, y), f)
+        pickle.dump((X, y, connections), f)
 
 
-def make_training_and_testing_set(X, y):
+def make_training_and_testing_set(X, y, connections):  # inputs are all lists
     # Create the directory if it doesn't exist
     directory = os.path.dirname(Config.training_set_save_path)
     if not os.path.exists(directory):
         os.makedirs(directory)
 
     # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=Config.train_test_split_ratio, random_state=Config.random_state)
+    X_train, X_test, y_train, y_test, con_train, con_test = train_test_split(X, y, connections, test_size=Config.train_test_split_ratio, random_state=Config.random_state)
 
     # Saving the numpy arrays into a single .npz file
     np.savez(Config.training_set_save_path, X_train=X_train, y_train=y_train)
     np.savez(Config.testing_set_save_path, X_test=X_test, y_test=y_test)
+
+    # Save connections with pickle (np.savez not possible because connections has no homogenous shape)
+    with open(Config.connections_set_save_path, 'wb') as f:
+        pickle.dump((con_train, con_test), f)
 
 
 if __name__ == "__main__":
@@ -531,25 +577,29 @@ if __name__ == "__main__":
         print("Making Depth First Search for Neighbor Finding + Feature Computation")
         filtered_comp_ids = atom_df_filtered['comp_id'].unique()
         results = {}
+        all_connections = {}
 
         for comp_id in tqdm(filtered_comp_ids, position=0, leave=True):
             adj_matrix = adj_matrices[comp_id]
             atom_index = atom_indices[comp_id]
             atom_info_dict = atom_infos[comp_id]
             features_by_depth = {}
+            connections_by_depth = {}
             
             # Process only atoms in atom_df_filtered for the current comp_id
             filtered_atoms = atom_df_filtered[atom_df_filtered['comp_id'] == comp_id]['atom_id'].unique()
             for atom in filtered_atoms:
-                features = depth_limited_search_with_features(atom, adj_matrix, atom_index, atom_info_dict, depth=Config.neighbor_depth)
+                features, connections = depth_limited_search_with_features(atom, adj_matrix, atom_index, atom_info_dict, depth=Config.neighbor_depth)
                 if features:
                     features_by_depth[atom] = features
+                    connections_by_depth[atom] = connections
             if features_by_depth:
                 results[comp_id] = features_by_depth
+                all_connections[comp_id] = connections_by_depth
 
         # Save to pickle file (for debugging if wanted)
-        # with open('../data/dataset-C4-depth2/intermediate-results.pkl', 'wb') as f:
-        #     pickle.dump(results, f)
+        # with open(f'../data/{Config.base_folder_name}/intermediate-results.pkl', 'wb') as f:
+        #     pickle.dump((results, all_connections), f)
 
         # Display the results for one comp_id
         for comp_id, features in results.items():
@@ -561,24 +611,25 @@ if __name__ == "__main__":
 
         # make a one-level dictionary with tuple keys from a two level dictionary
         results = restructure_results(results)
+        all_connections = restructure_connections(all_connections)
 
         # filter out all samples that do not have exactly Config.num_neighbors_to_centralatom neighbors to the central atom
         print(f"Filtering out samples that do not have {Config.num_neighbors_to_centralatom} neighbors to the central atom")
-        filtered_results(results, num_neighbors=Config.num_neighbors_to_centralatom)
+        filtered_results(results, all_connections, num_neighbors=Config.num_neighbors_to_centralatom)
 
         # seperate the hydrogens from the neighbors of depth 1 (as we want to predict those positions) and put them to y
         print("Separating hydrogens")
         results, y = seperate_hydrogens(results) 
 
         # There should be as many keys in results as in y
-        assert len(results) == len(y)
+        assert len(results) == len(y) and len(results) == len(all_connections)
 
         # make zero padding, merge feature lists of different depths and apply one-hot encoding
         print("Making the final feature vector X")
         X = process_results(results, Config.neighbor_depth)
 
         # There should be as many keys in X as in y
-        assert len(X) == len(y)
+        assert len(X) == len(y) and len(X) == len(all_connections)
 
         # Print the first 5 keys directly
         print("5 example keys of the dataset: ")
@@ -589,20 +640,22 @@ if __name__ == "__main__":
                 break
 
         # Save the dataset, where X and y are dictionaries at the moment (with the IDs)
-        save_dataset(X, y)
+        save_dataset(X, y, all_connections)
 
-        # Make X and y to lists (they were dictionaries before)
+        # Make X, y and all_connections to lists (they were dictionaries before)
         X_raw = []
         y_raw = []
+        connections_raw = []
         for (comp_id, atom_id), feature_list in X.items():
             X_raw.append(feature_list)
             y_raw.extend(y[(comp_id, atom_id)])
+            connections_raw.append(all_connections[(comp_id, atom_id)])
         
-        assert len(X_raw) == len(y_raw)
+        assert len(X_raw) == len(y_raw) and len(X_raw) == len(connections_raw)
         print(f"There are {len(X_raw)} samples in the dataset")
 
         # Split the data and save it
-        make_training_and_testing_set(X_raw, y_raw)
+        make_training_and_testing_set(X_raw, y_raw, connections_raw)
 
         # Save the configuration
         Config.save_to_json(Config.config_save_path)
