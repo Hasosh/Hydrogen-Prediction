@@ -43,7 +43,7 @@ def all_angles_H_central_neighbor(X_relative_coordinates, y):
 
 
 def compute_dihedral(p0, p1, p2, p3):
-    """Calculate the dihedral angle between four points."""
+    """Calculate the dihedral angle between four points. p1 and p2 are the fixed points of the two planes"""
     # Cast inputs to numpy arrays
     p0 = np.asarray(p0)
     p1 = np.asarray(p1)
@@ -238,6 +238,38 @@ def extract_relative_coordinates(X):
             raise Exception("Error occurred extracting relative coordinates")
         X_rel.append(X_rel_current)
     return X_rel
+
+# Nützliche Methoden für die Dihedralwinkelberechnung
+
+def build_graph(tuples_list):
+    graph = {}
+    for start, end in tuples_list:
+        if start not in graph:
+            graph[start] = []
+        graph[start].append(end)
+    return graph
+
+def dfs_with_depth(graph, start_node, depth):
+    stack = [(start_node, 0)]
+    neighbors_at_depth = []
+    while stack:
+        current_node, current_depth = stack.pop()
+        if current_depth < depth:
+            if current_node in graph:
+                for neighbor in graph[current_node]:
+                    stack.append((neighbor, current_depth + 1))
+                    if current_depth + 1 == depth:
+                        neighbors_at_depth.append((current_node, neighbor))
+    return neighbors_at_depth
+
+def find_neighbors(tuples_list, start_atom, depth):
+    graph = build_graph(tuples_list)
+    neighbors_dict = {}
+    for start, end in tuples_list:
+        if start == start_atom:
+            neighbors = dfs_with_depth(graph, end, depth - 1)
+            neighbors_dict[(start, end)] = neighbors
+    return neighbors_dict
 
 
 if __name__ == "__main__":
