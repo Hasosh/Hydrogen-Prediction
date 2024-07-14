@@ -26,7 +26,11 @@ def calculate_wasserstein_distance(data_ref, data_obs, bins=10, range=None):
     binning_ref, counts_ref = compute_histogram(data_ref, bins=bins, range=range)
     binning_obs, counts_obs = compute_histogram(data_obs, bins=bins, range=range)
     
-    assert np.array_equal(binning_ref, binning_obs), 'Bins are not equal.'
+    if binning_ref.dtype == binning_obs.dtype:
+        assert np.array_equal(binning_ref, binning_obs), 'Bins are not equal.'
+    else:
+        # to account for different dtypes of the numpy arrays binning_ref, binning_obs
+        assert np.array_equal(binning_ref, binning_obs.astype(binning_ref.dtype)) or np.array_equal(binning_ref.astype(binning_obs.dtype), binning_obs), 'Bins are not equal.'
 
     if np.sum(counts_ref) == 0 or np.sum(counts_obs) == 0:
         return 'NaN'
