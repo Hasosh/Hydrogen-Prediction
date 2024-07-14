@@ -52,6 +52,7 @@ class Config():
     project_name = "hydrogen-prediction"
     datasets = ['dataset-C4-depth1', 'dataset-O2-depth1', 'dataset-C4-depth2', 'dataset-O2-depth2']
     alpha_values = [1, 0.1, 0.01, 0.001]
+    do_polynomial_regression = True
     estimator_values = [100, 200, 500]
 
     # -------------------------------------------------
