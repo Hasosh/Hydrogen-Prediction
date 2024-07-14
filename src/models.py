@@ -1,5 +1,6 @@
 from sklearn.multioutput import MultiOutputRegressor
 from datetime import datetime
+import os
 
 # models
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
@@ -69,7 +70,14 @@ def bayesian_regression(X_train, y_train, X_val):
     return y_pred
 
 
+def create_model_checkpoint_dir(directory="model_checkpoints"):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+
 def simple_MLP(X_train, y_train, X_val):
+    create_model_checkpoint_dir()
+
     input_dim = X_train.shape[1]
     output_dim = y_train.shape[1]
 
@@ -95,6 +103,8 @@ def simple_MLP(X_train, y_train, X_val):
 
 
 def complex_MLP(X_train, y_train, X_val):
+    create_model_checkpoint_dir()
+
     input_dim = X_train.shape[1]
     output_dim = y_train.shape[1]
 
