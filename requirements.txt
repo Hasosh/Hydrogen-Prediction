@@ -1,12 +1,21 @@
-numpy
-pandas
-matplotlib
-tqdm
-scikit-learn
-scipy
-catboost
-xgboost
-seaborn
-gemmi
-ase
-dscribe
+# Core Data Science Libraries
+numpy==1.24.3
+pandas==2.1.4
+scipy==1.13.0
+matplotlib==3.8.4
+
+# Machine Learning Libraries
+scikit-learn==1.2.2
+catboost==1.2.5
+xgboost==2.1.0
+tensorflow==2.13.1
+keras==2.13.1
+
+# Utilities and Other Libraries
+tqdm==4.65.0
+gemmi==0.6.5
+wandb==0.17.4
+pillow==10.2.0
+
+# Development and Jupyter Notebook
+notebook==7.0.8
