@@ -19,3 +19,4 @@ pillow==10.2.0
 
 # Development and Jupyter Notebook
 notebook==7.0.8
+ipykernel==6.29.5
