@@ -18,12 +18,13 @@ Siehe Beispiele durch Ausführung dieses Skripts (main-methode ganz unten)
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_squared_error, r2_score
-from scipy.stats import wasserstein_distance
 from scipy.stats import norm
 from sklearn.mixture import GaussianMixture
 import itertools
 from tqdm import tqdm
-#import sys
+
+# Wasserstein distance
+from calc_wasserstein import *
 
 
 # -------------------------------------------------
@@ -218,7 +219,7 @@ def eval_regression(y_test, y_pred, X_test_coords=None):
         # Wasserstein Distanz zwischen zwei Winkelverteilungen
         all_angles_test = all_angles_H_central_neighbor(X_test_coords, y_test)  # alle Winkel im Test set
         all_angles_pred = all_angles_H_central_neighbor(X_test_coords, y_pred)  # alle Winkel durch Prediction
-        wasserstein = wasserstein_distance(all_angles_test , all_angles_pred)
+        wasserstein = calculate_wasserstein_distance(all_angles_test, all_angles_pred, bins=180, range=(0, 180))
         print("Die Wasserstein Distanz zwischen den beiden Winkelverteilungen beträgt: ", wasserstein)
         return mse, r2, avg_angle, avg_bindugslänge_diff, wasserstein
     
@@ -349,5 +350,5 @@ if __name__ == "__main__":
     # Wasserstein Distanz zwischen zwei Winkelverteilungen
     all_angles_test = all_angles_H_central_neighbor(X_relative_coordinates, y_test)  # alle Winkel im Test set
     all_angles_pred = all_angles_H_central_neighbor(X_relative_coordinates, y_pred)  # alle Winkel durch Prediction
-    wasserstein = wasserstein_distance(all_angles_test , all_angles_pred)
+    wasserstein = calculate_wasserstein_distance(all_angles_test, all_angles_pred, bins=180, range=(0, 180))
     print("Die Wasserstein Distanz zwischen den beiden Winkelverteilungen beträgt: ", wasserstein)
