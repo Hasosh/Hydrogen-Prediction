@@ -494,170 +494,170 @@ def make_training_and_testing_set(X, y, connections):  # inputs are all lists
 
 if __name__ == "__main__":
     print("BEGIN")
-    if not Config.dev:
-        doc = cif.read_file(Config.cif_path)
-        print('Number of blocks/molecules in dataset: '+ str(len(doc)))
 
-        if Config.make_bond_df:
-            print("Making bond_df")
-            create_bond_df(doc)
-            print("Finished making bond_df")
+    doc = cif.read_file(Config.cif_path)
+    print('Number of blocks/molecules in dataset: '+ str(len(doc)))
+
+    if Config.make_bond_df:
+        print("Making bond_df")
+        create_bond_df(doc)
+        print("Finished making bond_df")
+    
+    if Config.make_atom_df:
+        print("Making atom_df")
+        create_atom_df(doc)
+        print("Finished making atom_df")
+
+    if Config.make_atom_df_extended:
+        try:
+            atom_df = pd.read_csv(Config.atom_df_path)
+            bond_df = pd.read_csv(Config.bond_df_path)
+        except FileNotFoundError as e:
+            print(f"File not found: {e.filename}")
+        except pd.errors.EmptyDataError as e:
+            print(f"No data: {e}")
+        except pd.errors.ParserError as e:
+            print(f"Parsing error: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+        print("Making atom_df_extended")
+        create_atom_df_extended(atom_df, bond_df)
+        print("Finished making atom_df_extended")
+
+    # load atom_df and bond_df
+    atom_df = pd.read_csv(Config.atom_df_filtered_path)
+    bond_df = pd.read_csv(Config.bond_df_path)
+
+    # check certain assertions
+    print("Making assertions about dataframes")
+    check_assertions(atom_df, bond_df)
+
+    # clean dataframe (remove nan and ? samples)
+    print("Cleaning dataframes")
+    atom_df, bond_df = clean_dataframe(atom_df, bond_df)
+
+    # Modify columns (add atomic number to atom df and change value order from string to integer)
+    print("modifying columns of dataframes")
+    atom_df, bond_df = modify_columns(atom_df, bond_df)
+
+    # Save the updated atom_df to CSV
+    atom_df.to_csv('../data/atom_df_extended_filtered.csv', index=False)
+    bond_df.to_csv('../data/bond_df_filtered.csv', index=False)
+
+    # load atom_df and bond_df
+    atom_df = pd.read_csv('../data/atom_df_extended_filtered.csv')
+    bond_df = pd.read_csv('../data/bond_df_filtered.csv')
+
+    # filtering
+    atom_df_filtered = filter_centralatom_bondedhydrogens(atom_df, Config.central_atom, Config.num_hydrogens)
+
+    # remove unneeded columns
+    atom_df_filtered.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
+    atom_df.drop(columns=["is_hydrogen", "bonded_hydrogens"], inplace=True)  # NOT! atom_df.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
+
+    # Preprocess data (i.e. make adjacency matrices for each comp_id to make the further computations faster afterwards)
+    if Config.make_preprocessed_data:
+        # Preprocess data
+        print("Making preprocessed data")
+        comp_ids = atom_df['comp_id'].unique() 
+        print("Number of comp_ids: ", len(comp_ids))
+        adj_matrices, atom_indices, atom_infos = preprocess_data(bond_df, atom_df, comp_ids)
+
+        # Save to pickle file
+        with open(Config.preprocessed_data_save_path, 'wb') as f:
+            pickle.dump((adj_matrices, atom_indices, atom_infos), f)
+
+    # Open and load the pickle file
+    with open(Config.preprocessed_data_save_path, 'rb') as f:
+        preprocessed_data = pickle.load(f)
+    adj_matrices, atom_indices, atom_infos = preprocessed_data
+
+    # Process only comp_ids in atom_df_filtered
+    print("Making Depth First Search for Neighbor Finding + Feature Computation")
+    filtered_comp_ids = atom_df_filtered['comp_id'].unique()
+    results = {}
+    all_connections = {}
+
+    for comp_id in tqdm(filtered_comp_ids, position=0, leave=True):
+        adj_matrix = adj_matrices[comp_id]
+        atom_index = atom_indices[comp_id]
+        atom_info_dict = atom_infos[comp_id]
+        features_by_depth = {}
+        connections_by_depth = {}
         
-        if Config.make_atom_df:
-            print("Making atom_df")
-            create_atom_df(doc)
-            print("Finished making atom_df")
+        # Process only atoms in atom_df_filtered for the current comp_id
+        filtered_atoms = atom_df_filtered[atom_df_filtered['comp_id'] == comp_id]['atom_id'].unique()
+        for atom in filtered_atoms:
+            features, connections = depth_limited_search_with_features(atom, adj_matrix, atom_index, atom_info_dict, depth=Config.neighbor_depth)
+            if features:
+                features_by_depth[atom] = features
+                connections_by_depth[atom] = connections
+        if features_by_depth:
+            results[comp_id] = features_by_depth
+            all_connections[comp_id] = connections_by_depth
 
-        if Config.make_atom_df_extended:
-            try:
-                atom_df = pd.read_csv(Config.atom_df_path)
-                bond_df = pd.read_csv(Config.bond_df_path)
-            except FileNotFoundError as e:
-                print(f"File not found: {e.filename}")
-            except pd.errors.EmptyDataError as e:
-                print(f"No data: {e}")
-            except pd.errors.ParserError as e:
-                print(f"Parsing error: {e}")
-            except Exception as e:
-                print(f"An unexpected error occurred: {e}")
+    # Save to pickle file (for debugging if wanted)
+    # with open(f'../data/{Config.base_folder_name}/intermediate-results.pkl', 'wb') as f:
+    #     pickle.dump((results, all_connections), f)
 
-            print("Making atom_df_extended")
-            create_atom_df_extended(atom_df, bond_df)
-            print("Finished making atom_df_extended")
+    # Display the results for one comp_id
+    for comp_id, features in results.items():
+        print(f"Features by depth for comp_id {comp_id}:")
+        for start_atom, depth_features in features.items():
+            print(f"  Start atom {start_atom}: {depth_features}")
+        print()
+        break
 
-        # load atom_df and bond_df
-        atom_df = pd.read_csv(Config.atom_df_filtered_path)
-        bond_df = pd.read_csv(Config.bond_df_path)
+    # make a one-level dictionary with tuple keys from a two level dictionary
+    results = restructure_results(results)
+    all_connections = restructure_connections(all_connections)
 
-        # check certain assertions
-        print("Making assertions about dataframes")
-        check_assertions(atom_df, bond_df)
+    # filter out all samples that do not have exactly Config.num_neighbors_to_centralatom neighbors to the central atom
+    print(f"Filtering out samples that do not have {Config.num_neighbors_to_centralatom} neighbors to the central atom")
+    filtered_results(results, all_connections, num_neighbors=Config.num_neighbors_to_centralatom)
 
-        # clean dataframe (remove nan and ? samples)
-        print("Cleaning dataframes")
-        atom_df, bond_df = clean_dataframe(atom_df, bond_df)
+    # seperate the hydrogens from the neighbors of depth 1 (as we want to predict those positions) and put them to y
+    print("Separating hydrogens")
+    results, y = seperate_hydrogens(results) 
 
-        # Modify columns (add atomic number to atom df and change value order from string to integer)
-        print("modifying columns of dataframes")
-        atom_df, bond_df = modify_columns(atom_df, bond_df)
+    # There should be as many keys in results as in y
+    assert len(results) == len(y) and len(results) == len(all_connections)
 
-        # Save the updated atom_df to CSV
-        atom_df.to_csv('../data/atom_df_extended_filtered.csv', index=False)
-        bond_df.to_csv('../data/bond_df_filtered.csv', index=False)
+    # make zero padding, merge feature lists of different depths and apply one-hot encoding
+    print("Making the final feature vector X")
+    X = process_results(results, Config.neighbor_depth)
 
-        # load atom_df and bond_df
-        atom_df = pd.read_csv('../data/atom_df_extended_filtered.csv')
-        bond_df = pd.read_csv('../data/bond_df_filtered.csv')
+    # There should be as many keys in X as in y
+    assert len(X) == len(y) and len(X) == len(all_connections)
 
-        # filtering
-        atom_df_filtered = filter_centralatom_bondedhydrogens(atom_df, Config.central_atom, Config.num_hydrogens)
-
-        # remove unneeded columns
-        atom_df_filtered.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
-        atom_df.drop(columns=["is_hydrogen", "bonded_hydrogens"], inplace=True)  # NOT! atom_df.drop(columns=["type_symbol", "is_hydrogen", "bonded_hydrogens"], inplace=True)
-
-        # Preprocess data (i.e. make adjacency matrices for each comp_id to make the further computations faster afterwards)
-        if Config.make_preprocessed_data:
-            # Preprocess data
-            print("Making preprocessed data")
-            comp_ids = atom_df['comp_id'].unique() 
-            print("Number of comp_ids: ", len(comp_ids))
-            adj_matrices, atom_indices, atom_infos = preprocess_data(bond_df, atom_df, comp_ids)
-
-            # Save to pickle file
-            with open(Config.preprocessed_data_save_path, 'wb') as f:
-                pickle.dump((adj_matrices, atom_indices, atom_infos), f)
-
-        # Open and load the pickle file
-        with open(Config.preprocessed_data_save_path, 'rb') as f:
-            preprocessed_data = pickle.load(f)
-        adj_matrices, atom_indices, atom_infos = preprocessed_data
-
-        # Process only comp_ids in atom_df_filtered
-        print("Making Depth First Search for Neighbor Finding + Feature Computation")
-        filtered_comp_ids = atom_df_filtered['comp_id'].unique()
-        results = {}
-        all_connections = {}
-
-        for comp_id in tqdm(filtered_comp_ids, position=0, leave=True):
-            adj_matrix = adj_matrices[comp_id]
-            atom_index = atom_indices[comp_id]
-            atom_info_dict = atom_infos[comp_id]
-            features_by_depth = {}
-            connections_by_depth = {}
-            
-            # Process only atoms in atom_df_filtered for the current comp_id
-            filtered_atoms = atom_df_filtered[atom_df_filtered['comp_id'] == comp_id]['atom_id'].unique()
-            for atom in filtered_atoms:
-                features, connections = depth_limited_search_with_features(atom, adj_matrix, atom_index, atom_info_dict, depth=Config.neighbor_depth)
-                if features:
-                    features_by_depth[atom] = features
-                    connections_by_depth[atom] = connections
-            if features_by_depth:
-                results[comp_id] = features_by_depth
-                all_connections[comp_id] = connections_by_depth
-
-        # Save to pickle file (for debugging if wanted)
-        # with open(f'../data/{Config.base_folder_name}/intermediate-results.pkl', 'wb') as f:
-        #     pickle.dump((results, all_connections), f)
-
-        # Display the results for one comp_id
-        for comp_id, features in results.items():
-            print(f"Features by depth for comp_id {comp_id}:")
-            for start_atom, depth_features in features.items():
-                print(f"  Start atom {start_atom}: {depth_features}")
-            print()
+    # Print the first 5 keys directly
+    print("5 example keys of the dataset: ")
+    for i, key in enumerate(X.keys()):
+        if i < 5:
+            print(key, end=' ')
+        else:
             break
 
-        # make a one-level dictionary with tuple keys from a two level dictionary
-        results = restructure_results(results)
-        all_connections = restructure_connections(all_connections)
+    # Save the dataset, where X and y are dictionaries at the moment (with the IDs)
+    save_dataset(X, y, all_connections)
 
-        # filter out all samples that do not have exactly Config.num_neighbors_to_centralatom neighbors to the central atom
-        print(f"Filtering out samples that do not have {Config.num_neighbors_to_centralatom} neighbors to the central atom")
-        filtered_results(results, all_connections, num_neighbors=Config.num_neighbors_to_centralatom)
+    # Make X, y and all_connections to lists (they were dictionaries before)
+    X_raw = []
+    y_raw = []
+    connections_raw = []
+    for (comp_id, atom_id), feature_list in X.items():
+        X_raw.append(feature_list)
+        y_raw.extend(y[(comp_id, atom_id)])
+        connections_raw.append(all_connections[(comp_id, atom_id)])
+    
+    assert len(X_raw) == len(y_raw) and len(X_raw) == len(connections_raw)
+    print(f"There are {len(X_raw)} samples in the dataset")
 
-        # seperate the hydrogens from the neighbors of depth 1 (as we want to predict those positions) and put them to y
-        print("Separating hydrogens")
-        results, y = seperate_hydrogens(results) 
+    # Split the data and save it
+    make_training_and_testing_set(X_raw, y_raw, connections_raw)
 
-        # There should be as many keys in results as in y
-        assert len(results) == len(y) and len(results) == len(all_connections)
+    # Save the configuration
+    Config.save_to_json(Config.config_save_path)
 
-        # make zero padding, merge feature lists of different depths and apply one-hot encoding
-        print("Making the final feature vector X")
-        X = process_results(results, Config.neighbor_depth)
-
-        # There should be as many keys in X as in y
-        assert len(X) == len(y) and len(X) == len(all_connections)
-
-        # Print the first 5 keys directly
-        print("5 example keys of the dataset: ")
-        for i, key in enumerate(X.keys()):
-            if i < 5:
-                print(key, end=' ')
-            else:
-                break
-
-        # Save the dataset, where X and y are dictionaries at the moment (with the IDs)
-        save_dataset(X, y, all_connections)
-
-        # Make X, y and all_connections to lists (they were dictionaries before)
-        X_raw = []
-        y_raw = []
-        connections_raw = []
-        for (comp_id, atom_id), feature_list in X.items():
-            X_raw.append(feature_list)
-            y_raw.extend(y[(comp_id, atom_id)])
-            connections_raw.append(all_connections[(comp_id, atom_id)])
-        
-        assert len(X_raw) == len(y_raw) and len(X_raw) == len(connections_raw)
-        print(f"There are {len(X_raw)} samples in the dataset")
-
-        # Split the data and save it
-        make_training_and_testing_set(X_raw, y_raw, connections_raw)
-
-        # Save the configuration
-        Config.save_to_json(Config.config_save_path)
-
-        print("FINISH")
+    print("FINISH")
