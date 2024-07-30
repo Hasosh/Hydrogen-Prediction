@@ -48,7 +48,7 @@ if __name__ == "__main__":
         connections_train, _ = connections  # we just need connections_train
 
         # Split the data to training - validation (not testing yet!)
-        X_train, X_val, y_train, y_val, connections_train, connections_val = train_test_split(X_train, y_train, connections_train, test_size=0.2, random_state=Config.random_state)
+        X_train, X_val, y_train, y_val, connections_train, connections_val = train_test_split(X_train, y_train, connections_train, test_size=Config.train_test_split_ratio, random_state=Config.random_state)
 
         # -------------------------------------------------
         # Extract (relative) coordinates from X_test
