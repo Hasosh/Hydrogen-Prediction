@@ -25,7 +25,7 @@ def create_bar_plot(group, metric, title, ascending):
         os.makedirs(directory)
 
     plt.title(f'{title} for {train_data_path}')
-    #plt.savefig(f"{directory}/{metric}.png", bbox_inches='tight')
+    plt.savefig(f"{directory}/{metric}.png", bbox_inches='tight')
     plt.show()
 
 # Function to plot rankings for each dataset
@@ -46,7 +46,7 @@ def plot_rankings(rankings):
             os.makedirs(directory)
         
         # Save the plot with a bounding box
-        #plt.savefig(f"{directory}/ranking.png", bbox_inches='tight')
+        plt.savefig(f"{directory}/ranking.png", bbox_inches='tight')
         plt.show()
 
 
