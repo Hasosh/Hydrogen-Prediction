@@ -2,7 +2,7 @@
 
 Hydrogen atoms play a significant role in the analysis and simulation of chemical components. However, large Protein datasets often lack hydrogen, ignoring it’s importance. Therefore, this project’s goal is to develop a tool that is able to recreate the correct position of hydrogen atoms in large molecules.
 
-Here you can find our [poster](https://github.com/Hasosh/Hydrogen-Prediction/blob/doc/poster.pdf) to the project.
+Here you can find our [poster](https://github.com/Hasosh/Hydrogen-Prediction/blob/main/doc/poster.pdf) to the project.
 
 ## Dataset
 
