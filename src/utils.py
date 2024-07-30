@@ -38,6 +38,7 @@ def all_angles_H_central_neighbor(X_relative_coordinates, y):
     for current_X, current_y in zip(X_relative_coordinates, y):
         for coords in current_X:
             _, angle = cosine_similarity_and_angle(coords, current_y)
+            angle = abs(angle)  # for the angles H (or  H') - central -  neighbor, we just need the absolute angle
             all_angles.append(angle)
     return np.array(all_angles)
 
@@ -145,6 +146,13 @@ def cosine_similarity_and_angle(vector1, vector2):
     
     # Compute the angle in radians
     angle_radians = np.arccos(cosine_sim)
+
+    # Compute the cross product to determine the sign of the angle
+    cross_product = np.cross(pred, truth)
+
+    # Determine the sign of the angle
+    if cross_product < 0:
+        angle_radians = -angle_radians
     
     # Convert the angle to degrees
     angle_degrees = np.degrees(angle_radians)
@@ -163,6 +171,7 @@ def metric_cosine_similarity_and_angle(y_test, y_pred):
     angles = []
     for t, p in zip(y_test, y_pred):
         cosine_sim, ang = cosine_similarity_and_angle(t, p)
+        ang = abs(ang)  # for the angle between H and H' we just need the absolute angle
         cosine_similarities.append(cosine_sim)
         angles.append(ang)
     avg_cosine_similarity = np.average(cosine_similarities)
