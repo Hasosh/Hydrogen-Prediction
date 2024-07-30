@@ -30,9 +30,6 @@ class Config():
     train_test_split_ratio = 0.2
     random_state = 42
 
-    # save path for dataset name (new folder will be created)
-    base_folder_name = 'dataset-O2-depth2-withcon'  
-
     # -------------------------------------------------
     # Configuration: train_models.py, model_selection.py, and test_models.py
     # -------------------------------------------------
@@ -55,6 +52,7 @@ class Config():
 
     value_order_mapping = {'SING': 1, 'DOUB': 2, 'TRIP': 3}  # do not change 
     atomic_number_mapping = {'H': 1, 'C': 6, 'N': 7, 'O': 8, 'S': 16}  # do not change
+    base_folder_name = f'dataset-{central_atom}{num_neighbors_to_centralatom}-depth{neighbor_depth}'  # do not change
     config_save_path = f'../data/{base_folder_name}/config.json'  # do not change
     dataset_save_path = f'../data/{base_folder_name}/dataset.pkl'  # do not change
     training_set_save_path = f'../data/{base_folder_name}/training-validation.npz'  # do not change
