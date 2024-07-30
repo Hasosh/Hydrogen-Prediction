@@ -2,6 +2,8 @@
 
 Hydrogen atoms play a significant role in the analysis and simulation of chemical components. However, large Protein datasets often lack hydrogen, ignoring it’s importance. Therefore, this project’s goal is to develop a tool that is able to recreate the correct position of hydrogen atoms in large molecules.
 
+Here you can find our [poster](https://github.com/Hasosh/Hydrogen-Prediction/blob/doc/poster.pdf) to the project.
+
 ## Dataset
 
 The dataset used in this project is sourced from the [The Worldwide Protein Data Bank](http://www.wwpdb.org/data/ccd). This comprehensive database provides detailed information on protein molecules, including their atomic composition and bonding structures. Some key statistics:
@@ -17,14 +19,13 @@ The dataset used in this project is sourced from the [The Worldwide Protein Data
 ├── img/             		        
 ├── src/           		            
 	├── model_checkpoints/          # Weights of best MLPs
-    ├── calc_wasserstein.py  	    # Method to compute min wasserstein distance  	
+	├── notebooks/                  # Optional notebooks (no new functionality)
+    ├── calc_wasserstein.py  	    # Compute min. wasserstein distance  	
     ├── config.py  				    # Configuration parameters		
 	├── data_preprocessing.py       # Data preprocessing + generation 
-	├── model_selection.ipynb  		# Selection of best models after training		 
-	├── models.py                   # Model definitions
-	├── test_models.ipynb        	# (optional) Testing of 3 best models per dataset		 
-	├── test_models.py  			# Testing of 3 best models per dataset			 
-	├── train_models.ipynb        	# (optional) Training models per dataset		 
+	├── model_selection.py  		# Selection of best models after training		 
+	├── models.py                   # Model definitions 
+	├── test_models.py  			# Testing of 3 best models per dataset			 	 
 	├── train_models.py      		# Training models per dataset			 
 	└── utils.py                    # Utility methods
 ├── .gitignore
@@ -54,6 +55,15 @@ mkdir data
 ```
 4. Download ```components.cif``` from [Worldwide Protein Data Bank](http://www.wwpdb.org/data/ccd) and put it into the folder ```data/```
 
+### Jupyter notebooks
+This project includes optional Jupyter notebooks designed to aid in debugging and understanding the Python scripts. While they do not introduce new functionality, they can be very helpful for deeper insight. Note that for the notebooks, you may need to adapt (relative) paths in the code.
+
+You can open these notebooks using an Integrated Development Environment (IDE) that supports Jupyter notebooks, such as VSCode or PyCharm, or by using Jupyter Notebook itself.
+
+To install Jupyter Notebook, refer to the following resources:
+- https://jupyter.org/install
+- https://stackoverflow.com/questions/58068818/how-to-use-jupyter-notebooks-in-a-conda-environment
+
 ### Data Preprocessing and Data Generation
 
 1. Specify the parameters in ```config.py```
@@ -75,23 +85,56 @@ mkdir data
 python data_preprocessing.py
 ```
 
-3. Train Linear regression models with notebook ```linear_regression.ipynb``` and tree-based models with notebook ```bagging_and_boosting.ipynb```
+### Training and Model Selection
 
-### Jupyter notebooks
-You can work on this project using an Integrated Development Environment (IDE) that supports Jupyter notebooks, such as VSCode or PyCharm, or you can use Jupyter Notebook itself:
-```
-jupyter notebook
-```
-If there appears a blank webpage, press "CTRL+F5" to force the page reloading.
+1. Specify the needed parameters in ```config.py```:
+    - use_wandb 
+    - wandb_project_name 
+    - datasets
+    - alpha_values 
+    - do_polynomial_regression 
+    - estimator_values 
+    - n_jobs
 
-## References
+2. If ```use_wandb = True```, then logged metrics are uploaded to [WandB](https://wandb.ai/site). Note that you cannot proceed with model selection if you do not use WandB.
+
+For that you need to create a Wandb account and login to your account via writing 
+```
+wandb login
+```
+into the command line and pasting your WandB API key. For more information, please click [here](https://docs.wandb.ai/quickstart).
+
+3. Run ```train_models.py```. 
+```
+python train_models.py
+```
+It will train various models (see ```models.py``` for more information) and log the metrics MSE, R2, average cosine similarity, average binding length, bond angle wasserstein distance:
+
+### Model Selection
+
+1. Specify the needed parameters in ```config.py```:
+    - wandb_entity     
+    - wandb_project_name 
+
+2. Run ```model_selection.py```: 
+```
+python model_selection.py
+```
+It computes metrics and identifies the best models per dataset through a ranking. The plots are saved in ```img/training/```. 
+
+The best models are tested in ```test_models.py``` later.
+
+### Testing
+
+1. Specify the parameters in ```config.py``` (see 1. of previous section) and set the model checkpoints in ```test_models.py``` (look for variable ```checkpoint_path```) if MLP models belong to one of the best models.
+
+2. If ```use_wandb = True```, then logged metrics are uploaded to [WandB](https://wandb.ai/site) (see 2. of previous section).
+
+3. Run ```test_models.py```. 
+```
+python test_models.py
+```
+It tests the best 3 models per dataset (**you need to code that yourself**). For all models the metrics MSE, R2, average cosine similarity, average binding length, bond angle wasserstein distance are logged. In addition, distribution plots between ground truth and predicted are made for bond angles, bond length and dihedral angles.
+
+## Related Work
 - Kunzmann, P., Anter, J. M., & Hamacher, K. (2022). <a href="https://link.springer.com/article/10.1186/s13015-022-00215-x">Adding hydrogen atoms to molecular models via fragment superimposition.</a> Algorithms for Molecular Biology, 17(1), 7.
-
-## Todos
-
-For poster:
-- Make visualization of our workflow?
-
-Implementation:
-- Make train_models.py and test_models.py work also with connections data structure
-- make a check for model_checkpoints/ folder in test_models.py (train_models.py must be run before test_models.py)
