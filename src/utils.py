@@ -68,6 +68,7 @@ def compute_dihedral(p0, p1, p2, p3):
 
     return np.degrees(np.arctan2(y, x))
 
+
 def all_dihedral_angles(coordinates):
     """Compute all possible dihedral angles for a list of coordinates."""
     num_atoms = len(coordinates)
@@ -96,6 +97,7 @@ def fit_gaussian(data, n_components=1):
         means = gmm.means_.flatten()
         variances = gmm.covariances_.flatten()
         return gmm, means, variances
+
 
 def plot_fit(data, n_components=1):
     plt.hist(data, bins=30, density=True, alpha=0.6, color='g')
@@ -146,13 +148,6 @@ def cosine_similarity_and_angle(vector1, vector2):
     
     # Compute the angle in radians
     angle_radians = np.arccos(cosine_sim)
-
-    # Compute the cross product to determine the sign of the angle
-    cross_product = np.cross(pred, truth)
-
-    # Determine the sign of the angle
-    if cross_product < 0:
-        angle_radians = -angle_radians
     
     # Convert the angle to degrees
     angle_degrees = np.degrees(angle_radians)
@@ -163,6 +158,7 @@ def cosine_similarity_and_angle(vector1, vector2):
     angle_degrees = round(angle_degrees, 3)
     
     return cosine_sim, angle_degrees
+
 
 def metric_cosine_similarity_and_angle(y_test, y_pred):
     assert len(y_test) == len(y_pred), "Length of y_test and y_pred is not the same"
@@ -252,7 +248,6 @@ def extract_relative_coordinates(X):
     return X_rel
 
 # Nützliche Methoden für die Dihedralwinkelberechnung
-
 def build_graph(tuples_list):
     graph = {}
     for start, end in tuples_list:
@@ -260,6 +255,7 @@ def build_graph(tuples_list):
             graph[start] = []
         graph[start].append(end)
     return graph
+
 
 def dfs_with_depth(graph, start_node, depth):
     stack = [(start_node, 0)]
@@ -273,6 +269,7 @@ def dfs_with_depth(graph, start_node, depth):
                     if current_depth + 1 == depth:
                         neighbors_at_depth.append((current_node, neighbor))
     return neighbors_at_depth
+
 
 def find_neighbors(tuples_list, start_atom, depth):
     graph = build_graph(tuples_list)
