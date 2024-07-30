@@ -128,27 +128,36 @@ def plot_dihedral_distribution(y_test, y_pred, X_test, connections_test, dataset
                 all_dihedral_angles_pred.append(dihedral_angle)
 
     # Calculate Wasserstein distance
-    distance = calculate_wasserstein_distance(all_dihedral_angles_test, all_dihedral_angles_pred, bins=180, range=(0, 180))
+    distance = calculate_wasserstein_distance(all_dihedral_angles_test, all_dihedral_angles_pred, bins=360, range=(-180, 180))
     print(f'Wasserstein distance for dihedral angle distributions: {distance}')
 
     # Create figure
     fig, ax = plt.subplots()
 
     # Plot histograms
-    ax.hist(all_dihedral_angles_test, bins=180, density=True, alpha=0.7, label='all_dihedral_angles_test')
-    ax.hist(all_dihedral_angles_pred, bins=180, density=True, alpha=0.5, color="red", label='all_dihedral_angles_pred')
-    ax.set_title(f"Dihedral angle distributions for {dataset_name}, model: {model_name}")
-    ax.set_xlabel("Degree (Angle)")
-    ax.set_ylabel("Density")
+    ax.hist(all_dihedral_angles_test, bins=360, density=True, alpha=0.7, color="#00519E", label='Ground truth')
+    ax.hist(all_dihedral_angles_pred, bins=360, density=True, alpha=0.7, color="darkorange", label='Predicted')
+    ax.set_title(f"Dataset: {dataset_name}, Model: {model_name}")
+    ax.set_xlabel("Dihedral Angle [°]", fontsize=14)
+    ax.set_ylabel("Density", fontsize=14)
 
     # Add Wasserstein distance text
     ax.text(0.55, 0.75, f'Wasserstein distance: {distance:.4f}', 
             horizontalalignment='right', 
             verticalalignment='top', 
-            transform=ax.transAxes)
+            transform=ax.transAxes,
+            fontsize=12)
 
     # Add legend
-    ax.legend()
+    ax.legend(fontsize=10)
+
+    # Customize tick sizes and values
+    plt.tick_params(axis='x', labelsize=12)
+    plt.tick_params(axis='y', labelsize=12)
+    plt.xticks(list(range(-180, 181, 30)), rotation=30)
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
 
     # Show plot
     #plt.show()

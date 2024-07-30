@@ -54,15 +54,18 @@ def compute_dihedral(p0, p1, p2, p3):
     b1 = p2 - p1
     b2 = p3 - p2
 
+    # Normalize b1 for the calculation
+    b1_norm = b1 / np.linalg.norm(b1)
+
+    # Compute normal vectors to the planes
     b0xb1 = np.cross(b0, b1)
     b1xb2 = np.cross(b1, b2)
 
-    b0xb1_x_b1xb2 = np.cross(b0xb1, b1xb2)
-
-    y = np.dot(b0xb1_x_b1xb2, b1) * (1.0 / np.linalg.norm(b1))
+    # Compute the dot and cross prducts needed for the angle
+    y = np.dot(np.cross(b0xb1, b1xb2), b1_norm)
     x = np.dot(b0xb1, b1xb2)
 
-    return abs(np.degrees(np.arctan2(y, x)))
+    return np.degrees(np.arctan2(y, x))
 
 def all_dihedral_angles(coordinates):
     """Compute all possible dihedral angles for a list of coordinates."""
