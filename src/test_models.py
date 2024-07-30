@@ -63,7 +63,7 @@ def plot_first_degree_bond_angles_distributions(y_test, y_pred, X_test_coords, d
     return buf
 
 
-def plot_bindinglength_distribution(y_test, y_pred, dataset_name, model_name):
+def plot_bondlength_distribution(y_test, y_pred, dataset_name, model_name):
     # Calculate binding lengths
     all_bindinglengths_test = bindungslängen(y_test)
     all_bindinglengths_pred = bindungslängen(y_pred)
@@ -76,20 +76,29 @@ def plot_bindinglength_distribution(y_test, y_pred, dataset_name, model_name):
     fig, ax = plt.subplots()
 
     # Plot histograms
-    ax.hist(all_bindinglengths_test, bins=100, density=True, alpha=0.7, label='all_bindinglengths_test')
-    ax.hist(all_bindinglengths_pred, bins=100, density=True, alpha=0.5, color="red", label='all_bindinglengths_pred')
-    ax.set_title(f"Binding length distribution for {dataset_name}, model: {model_name}")
-    ax.set_xlabel("Binding length")
+    ax.hist(all_bindinglengths_test, bins=100, density=True, alpha=0.7, label='Ground truth')
+    ax.hist(all_bindinglengths_pred, bins=100, density=True, alpha=0.7, color="red", label='Predicted')
+    ax.set_title(f"Dataset: {dataset_name}, Model: {model_name}", fontsize=16)
+    ax.set_xlabel("Bond Length [$\\mathrm{\AA}$]", fontsize=14)
     ax.set_ylabel("Density")
 
     # Add Wasserstein distance text
     ax.text(0.55, 0.75, f'Wasserstein distance: {distance:.4f}', 
             horizontalalignment='right', 
             verticalalignment='top', 
-            transform=ax.transAxes)
+            transform=ax.transAxes,
+            fontsize=12)
 
     # Add legend
-    ax.legend()
+    ax.legend(fontsize=10)
+
+    # Customize tick sizes and values
+    plt.tick_params(axis='x', labelsize=12)
+    plt.tick_params(axis='y', labelsize=12)
+    plt.xticks(list(range(0, 1.5, 0.2)))
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
 
     # Show plot
     #plt.show()
@@ -179,7 +188,7 @@ def make_plots(y_test, y_pred, X_test, X_test_coords, dataset_name, model_name, 
     buffer.append(buf)
 
     # Make plot for first degree bond angle distributions
-    buf = plot_bindinglength_distribution(y_test, y_pred, dataset_name, model_name)
+    buf = plot_bondlength_distribution(y_test, y_pred, dataset_name, model_name)
     buffer.append(buf)
 
     if depth > 1:
