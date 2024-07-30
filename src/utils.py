@@ -314,14 +314,14 @@ if __name__ == "__main__":
     dihedral_angles = all_dihedral_angles(X_relative_coordinates[0])
     for angle_info in dihedral_angles:
         indices, angle = angle_info
-        print(f"Dihedral Angle between points {indices}: {angle:.2f} degrees")
+        #print(f"Dihedral Angle between points {indices}: {angle:.2f} degrees")
 
     # alle Dihedralwinkel
     alle_dihedral_winkel = [all_dihedral_angles(coords) for coords in tqdm(X_relative_coordinates)]# there are many dihedral angles per sample!
     alle_dihedral_winkel_filtered = []
     for dw in alle_dihedral_winkel:
         alle_dihedral_winkel_filtered.extend([dw_inner[-1] for dw_inner in dw])
-    print(alle_dihedral_winkel_filtered)
+    #print(alle_dihedral_winkel_filtered)
     plt.hist(alle_dihedral_winkel_filtered, bins=1000, density=True, alpha=0.6, color='g'); plt.show()
 
     # -------------------------------------------------
