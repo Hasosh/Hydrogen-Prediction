@@ -313,16 +313,20 @@ if __name__ == "__main__":
 
 
             # 2. Simple MLP
-            model_name = "Simple-MLP"
-            model = load_model(f'model_checkpoints/best_model_simple_MLP_20240709-024225.h5')
-            y_pred = model.predict(X_test)
-            metrics = eval_regression(y_test, y_pred, X_test_coords)
+            checkpoint_path = 'model_checkpoints/best_model_simple_MLP_20240709-024225.h5'
+            if os.path.exists(os.path.dirname(checkpoint_path)):
+                model_name = "Simple-MLP"
+                model = load_model(checkpoint_path)
+                y_pred = model.predict(X_test)
+                metrics = eval_regression(y_test, y_pred, X_test_coords)
 
-            # make distribution plots
-            buffer = make_plots(y_test, y_pred, X_test, X_test_coords, dataset_name, model_name, depth=depth)
+                # make distribution plots
+                buffer = make_plots(y_test, y_pred, X_test, X_test_coords, dataset_name, model_name, depth=depth)
 
-            # Upload to wandb
-            log_metrics(model_name, metrics, plot_buf=buffer, **config)
+                # Upload to wandb
+                log_metrics(model_name, metrics, plot_buf=buffer, **config)
+            else:
+                print(f"Directory for model checkpoints does not exist: {os.path.dirname(checkpoint_path)}")
 
 
             # 3. Catboost 500
@@ -362,16 +366,20 @@ if __name__ == "__main__":
 
 
             # 3. Simple MLP
-            model_name = "Simple-MLP"
-            model = load_model(f'model_checkpoints/best_model_simple_MLP_20240709-031301.h5')
-            y_pred = model.predict(X_test)
-            metrics = eval_regression(y_test, y_pred, X_test_coords)
+            checkpoint_path = 'model_checkpoints/best_model_simple_MLP_20240709-031301.h5'
+            if os.path.exists(os.path.dirname(checkpoint_path)):
+                model_name = "Simple-MLP"
+                model = load_model(checkpoint_path)
+                y_pred = model.predict(X_test)
+                metrics = eval_regression(y_test, y_pred, X_test_coords)
 
-            # make distribution plots
-            buffer = make_plots(y_test, y_pred, X_test, X_test_coords, dataset_name, model_name, connections_test=connections_test, depth=depth)
+                # make distribution plots
+                buffer = make_plots(y_test, y_pred, X_test, X_test_coords, dataset_name, model_name, connections_test=connections_test, depth=depth)
 
-            # Upload to wandb
-            log_metrics(model_name, metrics, plot_buf=buffer, **config)
+                # Upload to wandb
+                log_metrics(model_name, metrics, plot_buf=buffer, **config)
+            else:
+                print(f"Directory for model checkpoints does not exist: {os.path.dirname(checkpoint_path)}")
 
         elif dataset_name == 'dataset-O2-depth1':
             # 1. Catboost 200
@@ -399,30 +407,37 @@ if __name__ == "__main__":
 
 
             # 3. Simple MLP
-            model_name = "Simple-MLP"
-            model = load_model(f'model_checkpoints/best_model_simple_MLP_20240709-025014.h5')
-            y_pred = model.predict(X_test)
-            metrics = eval_regression(y_test, y_pred, X_test_coords)
+            checkpoint_path = 'model_checkpoints/best_model_simple_MLP_20240709-025014.h5'
+            if os.path.exists(os.path.dirname(checkpoint_path)):
+                model_name = "Simple-MLP"
+                model = load_model(checkpoint_path)
+                y_pred = model.predict(X_test)
+                metrics = eval_regression(y_test, y_pred, X_test_coords)
 
-            # make distribution plots
-            buffer = make_plots(y_test, y_pred, X_test, X_test_coords, dataset_name, model_name, depth=depth)
+                # make distribution plots
+                buffer = make_plots(y_test, y_pred, X_test, X_test_coords, dataset_name, model_name, depth=depth)
 
-            # Upload to wandb
-            log_metrics(model_name, metrics, plot_buf=buffer, **config)
+                # Upload to wandb
+                log_metrics(model_name, metrics, plot_buf=buffer, **config)
+            else:
+                print(f"Directory for model checkpoints does not exist: {os.path.dirname(checkpoint_path)}")
 
         elif dataset_name == 'dataset-O2-depth2':
             # 1. Simple MLP
-            model_name = "Simple-MLP"
-            model = load_model(f'model_checkpoints/best_model_simple_MLP_20240709-032158.h5')
-            y_pred = model.predict(X_test)
-            metrics = eval_regression(y_test, y_pred, X_test_coords)
+            checkpoint_path = 'model_checkpoints/best_model_simple_MLP_20240709-032158.h5'
+            if os.path.exists(os.path.dirname(checkpoint_path)):
+                model_name = "Simple-MLP"
+                model = load_model(checkpoint_path)
+                y_pred = model.predict(X_test)
+                metrics = eval_regression(y_test, y_pred, X_test_coords)
 
-            # make distribution plots
-            buffer = make_plots(y_test, y_pred, X_test, X_test_coords, dataset_name, model_name, connections_test=connections_test, depth=depth)
+                # make distribution plots
+                buffer = make_plots(y_test, y_pred, X_test, X_test_coords, dataset_name, model_name, connections_test=connections_test, depth=depth)
 
-            # Upload to wandb
-            log_metrics(model_name, metrics, plot_buf=buffer, **config)           
-           
+                # Upload to wandb
+                log_metrics(model_name, metrics, plot_buf=buffer, **config)           
+            else:
+                print(f"Directory for model checkpoints does not exist: {os.path.dirname(checkpoint_path)}")
             
             # 2. Catboost 500
             model_name = "Catboost-500"
