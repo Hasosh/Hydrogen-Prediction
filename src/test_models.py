@@ -35,20 +35,29 @@ def plot_first_degree_bond_angles_distributions(y_test, y_pred, X_test_coords, d
     fig, ax = plt.subplots()
 
     # Plot histograms
-    ax.hist(all_angles_test, bins=180, density=True, alpha=0.7, label='all_angles_test')
-    ax.hist(all_angles_pred, bins=180, density=True, alpha=0.5, color="red", label='all_angles_pred')
-    ax.set_title(f"first degree bond angles distribution for {dataset_name}, model: {model_name}")
-    ax.set_xlabel("Degree (Angle)")
-    ax.set_ylabel("Density")
+    ax.hist(all_angles_test, bins=180, density=True, alpha=0.7, color="#00519E", label='Ground truth')
+    ax.hist(all_angles_pred, bins=180, density=True, alpha=0.7, color="darkorange", label='Predicted')
+    ax.set_title(f"Bond Angles, Dataset: {dataset_name}, Model: {model_name}", fontsize=16)
+    ax.set_xlabel("Degree (Angle)", fontsize=14)
+    ax.set_ylabel("Density", fontsize=14)
 
     # Add Wasserstein distance text
-    ax.text(0.55, 0.75, f'Wasserstein distance: {distance:.4f}', 
+    ax.text(0.55, 0.75, f'Wasserstein distance: {distance:.2f}', 
              horizontalalignment='right', 
              verticalalignment='top', 
-             transform=plt.gca().transAxes)
+             transform=plt.gca().transAxes,
+             fontsize=12)
 
     # Add legend
-    ax.legend()
+    ax.legend(fontsize=10)
+
+    # Customize tick sizes and values
+    plt.tick_params(axis='x', labelsize=12)
+    plt.tick_params(axis='y', labelsize=12)
+    plt.xticks(list(range(0, 181, 30)))
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
 
     # Show plot
     #plt.show()
@@ -76,14 +85,14 @@ def plot_bondlength_distribution(y_test, y_pred, dataset_name, model_name):
     fig, ax = plt.subplots()
 
     # Plot histograms
-    ax.hist(all_bindinglengths_test, bins=100, density=True, alpha=0.7, label='Ground truth')
-    ax.hist(all_bindinglengths_pred, bins=100, density=True, alpha=0.7, color="red", label='Predicted')
-    ax.set_title(f"Dataset: {dataset_name}, Model: {model_name}", fontsize=16)
+    ax.hist(all_bindinglengths_test, bins=100, density=True, alpha=0.7, color="#00519E", label='Ground truth')
+    ax.hist(all_bindinglengths_pred, bins=100, density=True, alpha=0.7, color="darkorange", label='Predicted')
+    ax.set_title(f"Bond Lengths, Dataset: {dataset_name}, Model: {model_name}", fontsize=16)
     ax.set_xlabel("Bond Length [$\\mathrm{\AA}$]", fontsize=14)
-    ax.set_ylabel("Density")
+    ax.set_ylabel("Density", fontsize=14)
 
     # Add Wasserstein distance text
-    ax.text(0.55, 0.75, f'Wasserstein distance: {distance:.4f}', 
+    ax.text(0.55, 0.75, f'Wasserstein distance: {distance:.2f}', 
             horizontalalignment='right', 
             verticalalignment='top', 
             transform=ax.transAxes,
@@ -146,12 +155,12 @@ def plot_dihedral_distribution(y_test, y_pred, X_test, connections_test, dataset
     # Plot histograms
     ax.hist(all_dihedral_angles_test, bins=360, density=True, alpha=0.7, color="#00519E", label='Ground truth')
     ax.hist(all_dihedral_angles_pred, bins=360, density=True, alpha=0.7, color="darkorange", label='Predicted')
-    ax.set_title(f"Dataset: {dataset_name}, Model: {model_name}")
+    ax.set_title(f"Dihedral Angles, Dataset: {dataset_name}, Model: {model_name}")
     ax.set_xlabel("Dihedral Angle [°]", fontsize=14)
     ax.set_ylabel("Density", fontsize=14)
 
     # Add Wasserstein distance text
-    ax.text(0.55, 0.75, f'Wasserstein distance: {distance:.4f}', 
+    ax.text(0.55, 0.75, f'Wasserstein distance: {distance:.2f}', 
             horizontalalignment='right', 
             verticalalignment='top', 
             transform=ax.transAxes,
