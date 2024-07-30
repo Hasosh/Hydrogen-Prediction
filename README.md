@@ -18,16 +18,16 @@ The dataset used in this project is sourced from the [The Worldwide Protein Data
 ├── data/            		        
 ├── img/             		        
 ├── src/           		            
-	├── model_checkpoints/          # Weights of best MLPs
-	├── notebooks/                  # Optional notebooks (no new functionality)
-    ├── calc_wasserstein.py  	    # Compute min. wasserstein distance  	
-    ├── config.py  				    # Configuration parameters		
-	├── data_preprocessing.py       # Data preprocessing + generation 
-	├── model_selection.py  		# Selection of best models after training		 
-	├── models.py                   # Model definitions 
-	├── test_models.py  			# Testing of 3 best models per dataset			 	 
-	├── train_models.py      		# Training models per dataset			 
-	└── utils.py                    # Utility methods
+	├── model_checkpoints/      # Weights of best MLPs
+	├── notebooks/              # Optional notebooks (no new functionality)
+    ├── calc_wasserstein.py     # Compute min. wasserstein distance  	
+    ├── config.py               # Configuration parameters		
+	├── data_preprocessing.py   # Data preprocessing + generation 
+	├── model_selection.py      # Selection of best models after training		 
+	├── models.py               # Model definitions 
+	├── test_models.py          # Testing of 3 best models per dataset			 	 
+	├── train_models.py         # Training models per dataset			 
+	└── utils.py                # Utility methods
 ├── .gitignore
 ├── README.md
 ├── requirements.txt
@@ -45,6 +45,8 @@ Activate the environment via
 ```
 conda activate hydrogen
 ```
+For more information, please refer to [Anacondas User Guide](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html).
+
 2. Install the dependencies via
 ```
 pip install -r requirements.txt
@@ -55,10 +57,10 @@ mkdir data
 ```
 4. Download ```components.cif``` from [Worldwide Protein Data Bank](http://www.wwpdb.org/data/ccd) and put it into the folder ```data/```
 
-### Jupyter notebooks
-This project includes optional Jupyter notebooks designed to aid in debugging and understanding the Python scripts. While they do not introduce new functionality, they can be very helpful for deeper insight. Note that for the notebooks, you may need to adapt (relative) paths in the code.
+### Notebooks
+This project includes optional notebooks designed to aid in debugging and understanding the Python scripts. While they do not introduce new functionality, they can be very helpful for deeper insight. Note that for the notebooks, you may need to adapt (relative) paths in the code.
 
-You can open these notebooks using an Integrated Development Environment (IDE) that supports Jupyter notebooks, such as VSCode or PyCharm, or by using Jupyter Notebook itself.
+You can open these notebooks using an Integrated Development Environment (IDE) that supports notebooks, such as VSCode or PyCharm, or by using Jupyter Notebook itself.
 
 To install Jupyter Notebook, refer to the following resources:
 - https://jupyter.org/install
