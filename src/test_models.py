@@ -264,30 +264,16 @@ if __name__ == "__main__":
         # Load connections
         # -------------------------------------------------
 
-        if depth == 2:
-            with open(f'../data/{dataset_name}/connections.pkl', 'rb') as f:
-                connections = pickle.load(f)
-            _, connections_test = connections  # we just need connections_test
+        with open(f'../data/{dataset_name}/connections.pkl', 'rb') as f:
+            connections = pickle.load(f)
+        _, connections_test = connections  # we just need connections_test
 
         # -------------------------------------------------
         # Extract (relative) coordinates from X_test
         # -------------------------------------------------
 
-        # Extract only the coordinates from X_test
-        X_test_coords = extract_relative_coordinates(X_test)
-
-        # For depth 2 datasets, extract the depth 1 coordinates only (this is only needed for computing the angle between H - CENTRAL - NEIGBOR_DEPTH_1)
-        if depth == 2:
-            print("Depth 2 If case reached")
-            X_test_coords_new = []
-            if dataset_name[8]=='C':
-                for c in X_test_coords:
-                    X_test_coords_new.append([c[0], c[1], c[2]])
-            elif dataset_name[8]=='O':
-                for c in X_test_coords:
-                    X_test_coords_new.append([c[0]])            
-            X_test_coords = X_test_coords_new
-        X_test_coords = np.asarray(X_test_coords)
+        # Extract only the depth1 coordinates from X_test
+        X_test_coords = extract_relative_coordinates_of_depth1(X_test, connections_test)
 
         # Configurations for wandb
         config = {

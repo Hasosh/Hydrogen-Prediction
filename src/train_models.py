@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import PolynomialFeatures
+import pickle
 
 # Config File
 from config import Config
@@ -42,24 +43,19 @@ if __name__ == "__main__":
         print("Shape of X: ", X_train.shape)
         print("Shape of y: ", y_train.shape)
 
+        with open(f'../data/{dataset_name}/connections.pkl', 'rb') as f:
+            connections = pickle.load(f)
+        connections_train, _ = connections  # we just need connections_train
+
         # Split the data to training - validation (not testing yet!)
-        X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=Config.random_state)
+        X_train, X_val, y_train, y_val, connections_train, connections_val = train_test_split(X_train, y_train, connections_train, test_size=0.2, random_state=Config.random_state)
+
+        # -------------------------------------------------
+        # Extract (relative) coordinates from X_test
+        # -------------------------------------------------
 
         # Extract only the coordinates from X_val
-        X_val_coords = extract_relative_coordinates(X_val)
-
-        # For depth 2 datasets, extract the depth 1 coordinates only (this is only needed for computing the angle between H - CENTRAL - NEIGBOR_DEPTH_1)
-        if dataset_name[-1] == "2":
-            print("Depth 2 If case reached")
-            X_val_coords_new = []
-            if dataset_name[8]=='C':
-                for c in X_val_coords:
-                    X_val_coords_new.append([c[0], c[1], c[2]])
-            elif dataset_name[8]=='O':
-                for c in X_val_coords:
-                    X_val_coords_new.append([c[0]])            
-            X_val_coords = X_val_coords_new
-        X_val_coords = np.asarray(X_val_coords)
+        X_val_coords = extract_relative_coordinates_of_depth1(X_val, connections_val)
 
         # Configurations for wandb
         config = {
