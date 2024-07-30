@@ -248,6 +248,15 @@ def extract_relative_coordinates(X):
         X_rel.append(X_rel_current)
     return X_rel
 
+def extract_relative_coordinates_of_depth1(X, connections):
+    X_rel = []
+    for i, tuples_list_raw in enumerate(connections):
+        neighbors_dict = find_neighbors(tuples_list_raw, -1, 2)
+        for key, _ in neighbors_dict.items():
+            index = int(key[-1] / 5 * 11 + 8)
+            X_rel.append(X[i][index:index + 3])
+    return X_rel
+
 # Nützliche Methoden für die Dihedralwinkelberechnung
 def build_graph(tuples_list):
     graph = {}
