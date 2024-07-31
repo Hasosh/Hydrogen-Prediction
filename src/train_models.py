@@ -47,6 +47,8 @@ if __name__ == "__main__":
             connections = pickle.load(f)
         connections_train, _ = connections  # we just need connections_train
 
+        assert len(X_train) == len(connections_train)
+
         # Split the data to training - validation (not testing yet!)
         X_train, X_val, y_train, y_val, connections_train, connections_val = train_test_split(X_train, y_train, connections_train, test_size=Config.train_test_split_ratio, random_state=Config.random_state)
 
@@ -56,6 +58,8 @@ if __name__ == "__main__":
 
         # Extract only the coordinates from X_val
         X_val_coords = extract_relative_coordinates_of_depth1(X_val, connections_val)
+
+        assert len(X_val) == len(X_val_coords)
 
         # Configurations for wandb
         config = {
