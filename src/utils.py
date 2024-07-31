@@ -215,7 +215,7 @@ def eval_regression(y_test, y_pred, X_test_coords=None):
     avg_bindugslänge_diff = metric_bindungslänge_differenz(y_test, y_pred)
     print("Durschnittliche Bindungslänge Differenz: ", avg_bindugslänge_diff)
 
-    if X_test_coords is not None and X_test_coords.size > 0:
+    if X_test_coords is not None:
         # Wasserstein Distanz zwischen zwei Winkelverteilungen
         all_angles_test = all_angles_H_central_neighbor(X_test_coords, y_test)  # alle Winkel im Test set
         all_angles_pred = all_angles_H_central_neighbor(X_test_coords, y_pred)  # alle Winkel durch Prediction
@@ -251,10 +251,12 @@ def extract_relative_coordinates(X):
 def extract_relative_coordinates_of_depth1(X, connections):
     X_rel = []
     for i, tuples_list_raw in enumerate(connections):
+        X_rel_current = []
         neighbors_dict = find_neighbors(tuples_list_raw, -1, 2)
         for key, _ in neighbors_dict.items():
             index = int(key[-1] / 5 * 11 + 8)
-            X_rel.append(X[i][index:index + 3])
+            X_rel_current.append(X[i][index:index + 3])
+        X_rel.append(X_rel_current)
     return X_rel
 
 # Nützliche Methoden für die Dihedralwinkelberechnung
