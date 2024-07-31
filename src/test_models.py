@@ -45,7 +45,7 @@ def plot_first_degree_bond_angles_distributions(y_test, y_pred, X_test_coords, d
     ax.text(0.55, 0.75, f'Wasserstein distance: {distance:.2f}', 
              horizontalalignment='right', 
              verticalalignment='top', 
-             transform=plt.gca().transAxes,
+             transform=ax.transAxes,
              fontsize=12)
 
     # Add legend
@@ -104,7 +104,7 @@ def plot_bondlength_distribution(y_test, y_pred, dataset_name, model_name):
     # Customize tick sizes and values
     plt.tick_params(axis='x', labelsize=12)
     plt.tick_params(axis='y', labelsize=12)
-    plt.xticks(list(range(0, 1.5, 0.2)))
+    plt.xticks(np.arange(0, 1.5, 0.2))
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
