@@ -151,3 +151,9 @@ It tests the best 3 models per dataset. For all models the metrics MSE, R2, aver
 
 ## Related Work
 - Kunzmann, P., Anter, J. M., & Hamacher, K. (2022). <a href="https://link.springer.com/article/10.1186/s13015-022-00215-x">Adding hydrogen atoms to molecular models via fragment superimposition.</a> Algorithms for Molecular Biology, 17(1), 7.
+
+# Note
+
+This project uses historical dependency versions for reproducibility.
+Updating to newer package versions is not supported and will break the original code.
+Dependabot alerts have been disabled intentionally.
